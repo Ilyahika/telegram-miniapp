@@ -111,6 +111,8 @@ async def on_start(message: Message):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not BOT_TOKEN:
+        print("BOT_TOKEN найден:", bool(os.getenv("BOT_TOKEN")))
+        print("WEBAPP_URL найден:", bool(os.getenv("WEBAPP_URL")))
         raise RuntimeError("Добавь BOT_TOKEN в Environment на Render")
     create_db()
     bot = Bot(token=BOT_TOKEN)
