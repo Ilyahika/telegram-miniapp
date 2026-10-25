@@ -110,6 +110,8 @@ async def on_start(message: Message):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("ENV TOKEN:", bool(os.getenv("BOT_TOKEN")))
+    print("PYTHON TOKEN:", bool(BOT_TOKEN))
     if not BOT_TOKEN:
         print("BOT_TOKEN найден:", bool(os.getenv("BOT_TOKEN")))
         print("WEBAPP_URL найден:", bool(os.getenv("WEBAPP_URL")))
