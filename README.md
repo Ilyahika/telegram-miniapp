@@ -1,20 +1,39 @@
-# Telegram Mini App — профиль + Мины
+# Telegram Mini App на aiogram + FastAPI + SQLite3
 
 ## Файлы
-`main.py`: aiogram, FastAPI, SQLite; `index.html`: дизайн; `app.js`: интерфейс/API.
+- main.py — Telegram webhook + API + SQLite3
+- index.html — интерфейс
+- app.js — запросы к API
+- requirements.txt — зависимости
+- .gitignore — не публикуем токены и базу
 
-## Настройка
-1. Положи все файлы **в корень** GitHub репозитория. Токен не добавляй в GitHub.
-2. В Render (Web Service) команды:
-   - Build: `pip install -r requirements.txt`
-   - Start: `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`
-   - Environment: `BOT_TOKEN` (секрет, новый токен); `WEBAPP_URL` (адрес GitHub Pages с https:// и завершающим /).
-3. В `app.js` замени `https://YOUR-SERVICE.onrender.com` на свой Render URL (без завершающего /).
-4. Сохрани код на GitHub, дождись развёртывания Render и GitHub Pages. Проверь `https://твой-render.onrender.com/health`.
-5. В личном чате с ботом отправь `/start` и нажми «Открыть». Запускать приложение в обычном браузере не надо: нужен подписанный `initData` от Telegram.
-6. Если в Telegram старый JS, закрой Mini App полностью и открой заново. Можно обновить версию имени `app.js?v=2` в index.html.
+## Быстрый вариант: весь Mini App через Render
+1. Положить файлы в корень своего репозитория GitHub (вместо старых).
+2. Render -> New -> Web Service -> выбрать этот репозиторий.
+3. Runtime: Python; Build Command: `pip install -r requirements.txt`.
+4. Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`.
+5. Environment -> добавить `BOT_TOKEN` = токен бота от BotFather.
+6. Выбрать Free, создать сервис. Render автоматически задаёт RENDER_EXTERNAL_URL.
+7. Открыть https://<имя>.onrender.com/health и проверить ответ `{"status":"ok"}`.
+8. Отправить боту /start и нажать «🚀 Открыть».
 
-## О хранении
-Сервер проверяет `initData` Telegram по HMAC, ID пользователя нельзя прислать произвольным JS. Таблицы создаются автоматически при запуске. SQLite хранится по пути `DB_PATH` (по умолчанию рядом с main.py). **На бесплатном Render файл SQLite не является постоянным хранилищем и может исчезнуть при развёртывании/рестарте/засыпании.** Для настоящего сохранения прогресса используй хостинг с постоянным диском или перейди на PostgreSQL. `DB_PATH=/var/data/database.db` можно задать только если диск реально примонтирован по `/var/data`.
+## Если надо сохранить GitHub Pages ссылку
+1. Получить ссылку Render `https://<имя>.onrender.com`.
+2. В app.js прописать `const API_BASE = "https://<имя>.onrender.com";`.
+3. В Render -> Environment добавить WEBAPP_URL = https://USERNAME.github.io/REPO/.
+4. Сохранить / дождаться deploy. GitHub Pages обновится после коммита.
+5. /start у бота откроет GitHub Pages, кнопки будут обращаться к API Render.
 
-Виртуальные игровые монеты, без ставок или реальных платежей. Победа даёт +50 монет, поражение не списывает монеты. Игровые правила управляются на сервере.
+## Важно: хранение SQLite
+На Render Free база SQLite исчезает при перезапуске/сне сервера и при deploy.
+Для постоянного хранения SQLite нужен план Render с persistent disk,
+смонтированный по пути /var/data, и Environment DB_PATH=/var/data/database.db.
+Бесплатная альтернатива для долговременных данных — внешняя PostgreSQL БД
+(но код потребуется адаптировать под PostgreSQL).
+
+## Проверка
+- /health доступен без Telegram
+- /api/me требует действительные Telegram WebApp initData
+- /telegram/webhook принимает только запросы с secret-token
+- не размещайте токен в main.py и GitHub
+- не запускайте тот же токен через polling на ПК одновременно с Render webhook
