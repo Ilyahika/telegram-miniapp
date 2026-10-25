@@ -84,7 +84,14 @@ def authenticate(init_data: str):
         return {'id': user_id, 'first_name': str(user.get('first_name') or 'Игрок')[:100],
                 'username': str(user.get('username') or '')[:100]}
     except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
-        raise HTTPException(401, 'Не удалось подтвердить профиль Telegram. Переоткрой приложение.') from exc
+        logging.warning(
+            "Telegram authorization failed: %s",
+            str(exc)
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="Не удалось подтвердить профиль Telegram"
+    ) from exc
 
 
 def get_player(db, user):
