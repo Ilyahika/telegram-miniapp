@@ -145,7 +145,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-origin = WEBAPP_URL.rstrip('/')
+parsed_webapp = urlsplit(WEBAPP_URL)
+origin = f'{parsed_webapp.scheme}://{parsed_webapp.netloc}'
 app.add_middleware(CORSMiddleware, allow_origins=[origin], allow_methods=['GET', 'POST'],
                    allow_headers=['Content-Type', 'X-Telegram-Init-Data'])
 

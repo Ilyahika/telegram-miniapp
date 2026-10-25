@@ -1,6 +1,6 @@
 // ВПИШИ сюда HTTPS-адрес твоего Render, БЕЗ / в конце.
 // Пример: https://my-miniapp.onrender.com
-const API_BASE = 'https://telegram-miniapp-i49m.onrender.com';
+const API_BASE = 'https://telegram-miniapp-i49m.onrender.com'; // ЗАМЕНИ адрес на свой Render
 
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
@@ -31,7 +31,7 @@ async function request(path, options = {}) {
   if (!response.ok) throw new Error(result.detail || `Ошибка сервера ${response.status}`);
   return result;
 }
-function draw(game) {
+function draw(game, keepStatus = false) {
   currentGame = game;
   const grid = $('grid');
   grid.innerHTML = '';
@@ -46,10 +46,12 @@ function draw(game) {
     grid.appendChild(btn);
   }
   $('new-game').disabled = busy || game?.status === 'playing';
-  if (!game) status('Нажми «Начать новую игру».');
-  else if (game.status === 'playing') status(`Открыто ${game.opened} из 20 безопасных клеток`);
-  else if (game.status === 'won') status('🏆 Победа! Получено +50 игровых монет.');
-  else status('💣 Попалась мина. Монеты не списаны.');
+  if (!keepStatus) {
+    if (!game) status('Нажми «Начать новую игру».');
+    else if (game.status === 'playing') status(`Открыто ${game.opened} из 20 безопасных клеток`);
+    else if (game.status === 'won') status('🏆 Победа! Получено +50 игровых монет.');
+    else status('💣 Попалась мина. Монеты не списаны.');
+  }
 }
 async function load() {
   try {
@@ -64,7 +66,7 @@ async function openCell(index) {
     const data = await request('/api/mines/open', {method:'POST', body:{cell:index}});
     showPlayer(data.player); currentGame = data.game;
   } catch(e) { status('⚠️ ' + e.message); }
-  finally { busy = false; draw(currentGame); }
+  finally { busy = false; draw(currentGame, true); }
 }
 $('new-game').addEventListener('click', async () => {
   if (busy) return;
@@ -73,7 +75,7 @@ $('new-game').addEventListener('click', async () => {
     const data = await request('/api/mines/new', {method:'POST'});
     currentGame = data.game; showPlayer(data.player);
   } catch(e) { status('⚠️ ' + e.message); }
-  finally { busy = false; draw(currentGame); }
+  finally { busy = false; draw(currentGame, true); }
 });
 $('nickname-form').addEventListener('submit', async event => {
   event.preventDefault();
