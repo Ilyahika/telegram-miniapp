@@ -73,8 +73,17 @@ def authenticate(init_data: str):
         if auth_date > now + 60 or now - auth_date > 86400:
             raise ValueError('expired')
         data_check = '\n'.join(f'{k}={v}' for k, v in sorted(params.items()))
-        secret = hmac.new(b'WebAppData', BOT_TOKEN.encode(), hashlib.sha256).digest()
-        expected = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+        secret = hmac.new(
+            BOT_TOKEN.encode("utf-8"),
+            b"WebAppData",
+            hashlib.sha256
+        ).digest()
+
+        expected = hmac.new(
+            secret,
+            data_check.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
         if not hmac.compare_digest(received_hash, expected):
             raise ValueError('invalid signature')
         user = json.loads(params['user'])
