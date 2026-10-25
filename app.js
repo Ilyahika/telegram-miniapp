@@ -17,6 +17,9 @@ function showPlayer(p) {
   if (document.activeElement !== $('nickname')) $('nickname').value = p.custom_nickname || '';
 }
 async function request(path, options = {}) {
+  console.log("Telegram доступен:", Boolean(tg));
+  console.log("initData получен:", Boolean(tg?.initData));
+  console.log("Пользователь найден:", Boolean(tg?.initDataUnsafe?.user));
   if (!tg?.initData) throw new Error('Открой приложение через кнопку «Открыть» в Telegram, а не в обычном браузере.');
   if (API_BASE.includes('YOUR-SERVICE')) throw new Error('Укажи настоящий адрес Render в первой строке app.js');
   let response;
