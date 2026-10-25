@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Моё Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 26px 18px; font-family: system-ui, Arial, sans-serif; color: #f5f7ff; background: linear-gradient(145deg,#10172b,#18102d); min-height: 100vh; }
+    .wrap { max-width: 450px; margin: auto; }
+    header { text-align: center; margin: 22px 0 30px; }
+    .emoji { font-size: 54px; }
+    h1 { margin: 8px 0; font-size: 28px; }
+    p { color: #aeb9d4; }
+    .card { background: #ffffff0e; border: 1px solid #ffffff20; border-radius: 22px; padding: 22px; margin: 16px 0; box-shadow: 0 8px 25px #0002; }
+    .count { font-size: 52px; text-align: center; font-weight: 800; color: #ad99ff; margin: 18px; }
+    button { width: 100%; border: none; padding: 15px; border-radius: 13px; font-size: 16px; font-weight: 700; color: white; background: linear-gradient(100deg,#5567ff,#914aff); margin-top: 10px; cursor: pointer; }
+    button.secondary { background: #333c57; }
+    button:disabled { opacity: .5; cursor: wait; }
+    #status { text-align: center; font-size: 13px; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><div class="emoji">🚀</div><h1>Моё Mini App</h1><p>Твой проект на Python + SQLite3</p></header>
+    <section class="card"><h3>👋 Профиль</h3><p id="name">Загрузка...</p><p id="userid"></p></section>
+    <section class="card"><h3>🎮 Счётчик</h3><div class="count" id="count">0</div><button id="add">➕ Добавить +1</button><button id="reset" class="secondary">🔄 Сбросить</button></section>
+    <section class="card"><h3>⚡ Действия</h3><button id="hello">💬 Показать сообщение</button><button id="close" class="secondary">✖ Закрыть</button></section>
+    <p id="status">Подключение...</p>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
