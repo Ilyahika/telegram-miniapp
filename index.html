@@ -1,62 +1,34 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<!-- Адрес сервера API (Render), БЕЗ / в конце. Если страница лежит на этом же сервере — можно оставить как есть. -->
+<meta name="api-base" content="https://telegram-miniapp-i49m.onrender.com">
 <title>BuildHouse</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-:root{color-scheme:dark;--bg:#0a0a0a;--p:#141414;--p2:#1d1d1d;--ln:#2e2e2e;--t:#f4f4f4;--m:#8c8c8c;--y:#ffd400;--r:#e10600}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--t);font:14px/1.4 -apple-system,"Segoe UI",system-ui,sans-serif;padding:12px 12px 92px}
-.wrap{max-width:480px;margin:auto}body.adm .wrap{max-width:1100px}
-.hz{height:6px;background:repeating-linear-gradient(-45deg,var(--y) 0 10px,#000 10px 20px);border-radius:3px}
-header{display:flex;align-items:center;gap:11px;margin:4px 0 10px}header svg{width:42px;height:42px}
-h1{margin:0;font-size:22px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}h1 span{color:var(--y)}header small{display:block;color:var(--m);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
-.bar{display:flex;gap:8px;margin:10px 0}.cur{flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--p);border:1px solid var(--ln);border-radius:10px;font-size:19px;font-weight:800}.cur i{font-style:normal;color:var(--y)}.cur small{color:var(--m);font-size:10px;margin-left:auto;font-weight:600;letter-spacing:.1em}
-.panel{background:var(--p);border:1px solid var(--ln);border-radius:12px;padding:14px;margin:10px 0}
-h2{margin:0 0 10px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--m)}h2 b{color:var(--y)}
-.m{color:var(--m);font-size:12px}.big{font-size:30px;font-weight:900;color:var(--y);margin:2px 0}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ok{color:var(--y)}.bad{color:var(--r)}
-button{font:inherit;font-weight:800;font-size:13px;letter-spacing:.04em;border:1px solid var(--y);background:var(--y);color:#000;border-radius:9px;padding:11px 14px;cursor:pointer;transition:transform .1s,opacity .15s}
-button:active{transform:scale(.96)}button:disabled{opacity:.35;cursor:not-allowed}
-button.o{background:transparent;color:var(--t);border-color:#555}button.o:hover{border-color:var(--y)}button.d{background:var(--r);border-color:var(--r);color:#fff}button.w{background:#fff;border-color:#fff}button.f{width:100%;padding:15px;font-size:14px}button.s{padding:6px 10px;font-size:11px}
-button.chip{background:var(--p2);color:var(--t);border-color:var(--ln);padding:9px 11px}button.chip.on{background:var(--y);color:#000;border-color:var(--y)}
-input{width:100%;min-width:0;background:#0d0d0d;color:var(--t);border:1px solid var(--ln);border-radius:9px;padding:11px;font:inherit;outline:none}input:focus{border-color:var(--y)}input[type=range]{padding:0;accent-color:var(--y)}
-.tabs{display:flex;gap:6px;flex-wrap:wrap}
-.prog{height:8px;background:#000;border:1px solid var(--ln);border-radius:5px;overflow:hidden;margin:8px 0}.prog i{display:block;height:100%;background:var(--y);transition:width .4s}
-.pill{display:inline-block;padding:3px 10px;border-radius:99px;background:var(--y);color:#000;font-weight:900;font-size:12px}.pill.r{background:var(--r);color:#fff}.pill.w{background:#fff;color:#000}.pill.g{background:var(--p2);color:var(--m)}
-.house{text-align:center}.house svg{width:100%;max-width:300px;border-radius:10px}
-.menu{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{padding:16px 10px;border-radius:12px;text-align:center;background:var(--p2);border:1px solid var(--ln);cursor:pointer;font-weight:800;letter-spacing:.04em}.card:hover,.card:active{border-color:var(--y)}.card i{display:block;font-style:normal;font-size:30px;margin-bottom:4px}.card small{display:block;color:var(--m);font-weight:500;font-size:11px;margin-top:3px;letter-spacing:0}
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:12px}
-.cell{aspect-ratio:1;padding:0;border-radius:10px;background:var(--p2);border:1px solid var(--ln);border-bottom:3px solid #000;color:var(--t);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;line-height:1.1;position:relative}
-.cell:not(:disabled):hover{border-color:var(--y)}.cell small{font-size:9px;color:var(--m);font-weight:600}.cell:disabled{opacity:1;cursor:default}
-.cell.safe{background:#1c1700;border-color:var(--y);border-bottom-color:var(--y);color:var(--y)}.cell.safe b{font-size:13px;font-weight:900}.cell.safe::before{content:"◆";font-size:13px;opacity:.9}
-.cell.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1)}.cell.mine{background:#2a0a08;border-color:var(--r);border-bottom-color:var(--r)}
-.cell.hit{animation:boom .6s both;background:var(--r)}.cell.rev{animation:rev .4s both}
-@keyframes pop{0%{transform:scale(.5);filter:brightness(3)}100%{transform:scale(1);filter:none}}@keyframes boom{0%{transform:scale(1)}25%{transform:scale(1.25) rotate(-6deg)}50%{transform:scale(1.15) rotate(6deg)}100%{transform:scale(1)}}@keyframes rev{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
-.shake{animation:sh .45s}@keyframes sh{20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
-.flash{animation:fl .5s}@keyframes fl{0%{box-shadow:0 0 0 0 var(--y)}100%{box-shadow:0 0 0 18px #ffd40000}}
-.list>div{display:flex;align-items:center;gap:10px;padding:10px;margin-top:6px;background:var(--p2);border:1px solid var(--ln);border-radius:10px}.list b.r{margin-left:auto;text-align:right}.list .me{border-color:var(--y)}
-.rk{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#000;border:1px solid var(--ln);font-weight:900;font-size:12px;flex:none}.rk.n1{background:var(--y);color:#000}.rk.n2{background:#fff;color:#000}.rk.n3{background:var(--r)}
-.drop{text-align:center;padding:18px;border:2px solid var(--y);border-radius:12px;background:var(--p);animation:pop .5s}.drop h3{margin:6px 0;font-size:20px}.roll{font-size:18px;font-weight:900;color:var(--y);text-align:center;padding:26px 0;letter-spacing:.04em}
-.car{display:flex;align-items:center;gap:10px}.car .t{width:6px;align-self:stretch;border-radius:3px;flex:none}
-#status{position:fixed;left:12px;right:12px;bottom:78px;max-width:456px;margin:auto;padding:11px 14px;border-radius:10px;background:#000;border:1px solid var(--y);font-size:13px;text-align:center;display:none;z-index:9}#status:not(:empty){display:block}
-nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:2px;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:#000;border-top:1px solid var(--ln);z-index:8}
-nav button{flex:1;max-width:84px;background:transparent;border:0;border-top:2px solid transparent;border-radius:0;color:var(--m);padding:6px 0 4px;font-size:9px;letter-spacing:.06em;text-transform:uppercase}nav button b{display:block;font-size:19px;margin-bottom:1px}nav button.on{color:var(--y);border-top-color:var(--y)}
-/* админ */
-.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.kpi div{padding:12px;border:1px solid var(--ln);border-radius:10px;background:var(--p2)}.kpi small{display:block;color:var(--m);font-size:10px;text-transform:uppercase;letter-spacing:.1em}.kpi b{font-size:21px;font-weight:900}
-.diag{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.diag div{padding:12px;border:1px solid var(--ln);border-left:4px solid var(--y);border-radius:10px;background:var(--p2)}.diag div.fail{border-left-color:var(--r)}.diag div.warn{border-left-color:#fff}.diag small{color:var(--m);font-size:11px;word-break:break-all}.diag b{display:flex;justify-content:space-between;font-size:13px}
-.split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;align-items:start}@media(max-width:820px){.split{grid-template-columns:1fr}}
-.prow{display:flex;align-items:center;gap:10px;padding:9px 10px;margin-top:5px;background:var(--p2);border:1px solid var(--ln);border-radius:9px;cursor:pointer}.prow:hover,.prow.sel{border-color:var(--y)}.prow.bl{border-left:4px solid var(--r)}.prow .r{margin-left:auto;text-align:right;font-size:12px}
-.acts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.acts+h2{margin-top:14px}
-pre{white-space:pre-wrap;font-size:11px}
-</style>
+<!-- Заранее открываем соединение с сервером: экономит 100–300 мс на первом запросе -->
+<link rel="preconnect" href="https://telegram-miniapp-i49m.onrender.com">
+<link rel="stylesheet" href="./style.css?v=6">
+<!-- defer: скрипты не блокируют показ страницы и выполняются по порядку (сначала Telegram, потом наш) -->
+<script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+<script src="./app.js?v=6" defer></script>
 </head>
-<body><div class="wrap">
-<header><svg viewBox="0 0 48 48"><path d="M24 4 3 22h6v22h30V22h6z" fill="#ffd400"/><path d="M24 4 3 22h42z" fill="#e10600"/><rect x="20" y="28" width="9" height="16" fill="#0a0a0a"/><rect x="11" y="26" width="6" height="6" fill="#0a0a0a"/><rect x="32" y="26" width="6" height="6" fill="#0a0a0a"/></svg>
-<div><h1>Build<span>House</span></h1><small>строй · качай · богатей</small></div></header>
-<div class="hz"></div>
-<div class="bar"><div class="cur"><i>$</i><span id="coins">—</span><small>ДОЛЛАРЫ</small></div><div class="cur"><i>★</i><span id="gems">—</span><small>ЗВЁЗДЫ</small></div></div>
-<div id="view"><div class="panel m">Загрузка…</div></div>
-</div><div id="status" role="status"></div><nav id="nav"></nav>
-<script src="./app.js?v=5"></script>
-</body></html>
+<body>
+<div class="wrap">
+  <header>
+    <svg viewBox="0 0 48 48"><path d="M24 4 3 22h6v22h30V22h6z" fill="#ffd400"/><path d="M24 4 3 22h42z" fill="#e10600"/><rect x="20" y="28" width="9" height="16" fill="#0a0a0a"/><rect x="11" y="26" width="6" height="6" fill="#0a0a0a"/><rect x="32" y="26" width="6" height="6" fill="#0a0a0a"/></svg>
+    <div><h1>Build<span>House</span></h1><small>строй · качай · богатей</small></div>
+  </header>
+  <div class="hz"></div>
+  <div class="bar">
+    <div class="cur"><i>$</i><span id="coins">—</span><small>ДОЛЛАРЫ</small></div>
+    <div class="cur"><i>★</i><span id="gems">—</span><small>ЗВЁЗДЫ</small></div>
+  </div>
+  <!-- Сюда app.js выводит текущий экран. Пока грузится — показываем заставку со счётчиком -->
+  <div id="view"><div class="panel splash"><div class="spin"></div><div id="splash-msg">Загрузка…</div></div></div>
+</div>
+<div id="status" role="status"></div>
+<nav id="nav"></nav>
+</body>
+</html>
