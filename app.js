@@ -5,8 +5,16 @@
 // Адрес API берём из <meta name="api-base"> в index.html (пусто = тот же сервер, что отдал страницу)
 const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim().replace(/\/$/, '');
 const VER = new URLSearchParams(document.currentScript?.src.split('?')[1] || '').get('v') || '1'; // версия для сброса кэша
-const tg = window.Telegram?.WebApp;                       // объект Telegram WebApp (нет, если открыто в обычном браузере)
-if (tg) { tg.ready(); tg.expand(); tg.disableVerticalSwipes?.(); }  // ready() — убирает загрузчик Telegram; expand() — на весь экран
+let tg = window.Telegram?.WebApp;                       // объект Telegram WebApp (нет, если открыто в обычном браузере)
+const tgInit = () => { if (tg) { tg.ready(); tg.expand(); tg.disableVerticalSwipes?.(); } };
+tgInit();
+/** Ждёт загрузки telegram-web-app.js (он грузится независимо от app.js и может задержаться). До maxMs мс. */
+async function waitTg(maxMs = 8000) {
+  const t = Date.now();
+  while (!window.Telegram?.WebApp && Date.now() - t < maxMs) await sleep(100);
+  if (!tg && window.Telegram?.WebApp) { tg = window.Telegram.WebApp; tgInit(); }
+  return !!tg;
+}  // ready() — убирает загрузчик Telegram; expand() — на весь экран
 
 window.__appStarted = true;
 const $ = id => document.getElementById(id);              // короткий поиск элемента по id
@@ -114,7 +122,8 @@ const splash = msg => { $('view').innerHTML = `<div class="panel splash"><div cl
 const DIAG = [];
 function diagShow(title = 'Диагностика запуска') {
   const icon = {ok: '✅', fail: '❌', wait: '⏳', warn: '⚠️'};
-  $('view').innerHTML = `<div class="panel"><h2>${esc(title)}</h2>` +
+  const waiting = DIAG.some(d => d.s === 'wait');   // пока идёт проверка — привычная заставка со спиннером
+  $('view').innerHTML = `<div class="panel${waiting ? ' splash' : ''}">${waiting ? '<div class="spin"></div>' : ''}<h2>${esc(waiting ? 'Загрузка…' : title)}</h2>` +
     DIAG.map(d => `<p style="margin:6px 0;text-align:left">${icon[d.s]} <b>${esc(d.name)}</b><br><small style="opacity:.8">${esc(d.msg)}</small></p>`).join('') + '</div>';
 }
 function diagStep(name) {
@@ -149,7 +158,8 @@ async function boot() {
 
   // 2. Telegram
   const stTg = diagStep('Telegram WebApp');
-  if (!tg) { stTg('fail', 'объект Telegram.WebApp не найден: страница открыта не из Telegram или telegram-web-app.js не загрузился (блокировка/нет интернета)'); return diagFail('Не удалось запустить'); }
+  await waitTg();
+  if (!tg) { stTg('fail', 'объект Telegram.WebApp не найден: страница открыта не из Telegram или telegram-web-app.js не загрузился за 8 с (telegram.org недоступен или заблокирован в вашей сети)'); return diagFail('Не удалось запустить'); }
   if (!tg.initData) { stTg('fail', `Telegram есть (платформа: ${tg.platform}), но initData пустой — открой Mini App кнопкой «Открыть» у бота, а не по ссылке в браузере`); return diagFail('Не удалось запустить'); }
   stTg('ok', `платформа ${tg.platform}, версия ${tg.version}, initData ${tg.initData.length} символов`);
 

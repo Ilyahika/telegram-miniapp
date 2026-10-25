@@ -8,10 +8,10 @@
 <meta name="api-base" content="">
 <title>BuildHouse</title>
 <!-- Заранее открываем соединение с сервером: экономит 100–300 мс на первом запросе -->
-<link rel="stylesheet" href="./style.css?v=7">
+<link rel="stylesheet" href="./style.css?v=8">
 <!-- defer: скрипты не блокируют показ страницы и выполняются по порядку (сначала Telegram, потом наш) -->
-<script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-<script src="./app.js?v=7" defer></script>
+<script src="https://telegram.org/js/telegram-web-app.js" async></script>
+<script src="./app.js?v=8" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -35,7 +35,7 @@ setTimeout(function () {
   if (window.__appStarted) return;
   var m = document.getElementById('splash-msg');
   if (m) m.innerHTML = '❌ Скрипт app.js не запустился за 6 с.<br><small>' + (window.Telegram && Telegram.WebApp ? 'Telegram загружен' : 'telegram-web-app.js НЕ загрузился') +
-    ' · проверь интернет и версию файла (?v=7). Закрой и открой Mini App заново.</small>';
+    ' · проверь интернет и версию файла (?v=8). Закрой и открой Mini App заново.</small>';
 }, 6000);
 </script>
 </body>
