@@ -1,27 +1,58 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Мины • Mini App</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    :root{color-scheme:dark;--bg:#0a1120;--panel:#172238;--line:#293a57;--text:#eff4ff;--muted:#9aabc7;--accent:#8b7cff}
-    *{box-sizing:border-box}body{background:radial-gradient(ellipse at top,#17294d,#0a1120 65%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;min-height:100vh;padding:20px 15px 48px}
-    .wrap{max-width:490px;margin:auto}header{text-align:center;margin:12px 0 25px}.eyebrow{color:#a7a4ff;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase}h1{margin:7px 0 6px;font-size:32px}header p{color:var(--muted);margin:0;font-size:14px}
-    .panel{background:rgba(23,34,56,.96);border:1px solid var(--line);border-radius:20px;padding:19px;margin:14px 0;box-shadow:0 12px 30px #03071125}h2{font-size:18px;margin:0 0 12px}.muted{color:var(--muted);font-size:13px}.statline{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.stat{background:#101b30;border-radius:14px;padding:12px;flex:1;min-width:90px;text-align:center}.stat b{font-size:22px;display:block;color:#c9c5ff}.stat small{color:var(--muted)}
-    .form{display:flex;gap:8px}input{width:100%;min-width:0;background:#0e192c;color:white;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:15px}button{border:0;border-radius:12px;padding:12px 15px;color:#fff;font-weight:750;background:linear-gradient(120deg,#7368ee,#9765e9);cursor:pointer;font-size:14px}button:disabled{opacity:.45;cursor:not-allowed}.outline{background:#303f5b}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:15px}.cell{aspect-ratio:1;padding:0;border:1px solid #6475a6;border-bottom:4px solid #465681;background:linear-gradient(140deg,#435987,#293b65);border-radius:11px;font-size:23px;display:flex;align-items:center;justify-content:center}.cell.open{background:#0e1c33;border-color:#23324e;border-bottom-width:1px;color:#ccd8fc}.cell.mine{background:#603547;border-color:#8e5269}.cell:focus-visible{outline:2px solid white}#status{padding:12px;margin-top:13px;background:#0e192d;color:#b7c6e6;border-radius:11px;font-size:13px;min-height:42px}.foot{color:var(--muted);text-align:center;font-size:12px;line-height:1.5;margin-top:22px}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BuildHouse</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{color-scheme:dark;--a:#ff3df2;--b:#00e5ff;--c:#ffd400;--bg:#07051a;--p:rgba(24,16,60,.88);--l:#3b2c8a;--t:#f4f0ff;--m:#a79fd6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:14px 12px 96px;min-height:100vh}
+.bg{position:fixed;inset:0;z-index:-1;background:radial-gradient(circle at 20% 10%,#5b1fd1aa,transparent 45%),radial-gradient(circle at 85% 30%,#00b7ff77,transparent 40%),radial-gradient(circle at 50% 100%,#ff3df255,transparent 50%);animation:hue 14s linear infinite}
+@keyframes hue{to{filter:hue-rotate(360deg)}}
+.wrap{max-width:500px;margin:auto}
+header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+header svg{width:58px;height:58px;filter:drop-shadow(0 0 12px var(--a));animation:fl 3s ease-in-out infinite}
+@keyframes fl{50%{transform:translateY(-4px) rotate(-3deg)}}
+h1{margin:0;font-size:31px;letter-spacing:.5px;background:linear-gradient(90deg,var(--c),var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px #ff3df244}
+header small{color:var(--m);font-size:12px;letter-spacing:.18em;text-transform:uppercase}
+.bar{display:flex;gap:10px;margin-bottom:12px}
+.cur{flex:1;padding:11px 14px;border-radius:16px;background:var(--p);border:1px solid var(--l);font-size:20px;font-weight:800;box-shadow:0 0 18px #7a4dff33}
+.cur.gem{border-color:#00e5ff88;color:var(--b);box-shadow:0 0 18px #00e5ff33}
+.panel{background:var(--p);border:1px solid var(--l);border-radius:22px;padding:16px;margin:12px 0;box-shadow:0 10px 34px #0008,inset 0 0 30px #7a4dff14}
+h2{margin:0 0 10px;font-size:18px}.m{color:var(--m);font-size:13px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{border:0;border-radius:14px;padding:12px 16px;color:#fff;font-weight:800;font-size:14px;background:linear-gradient(120deg,#7b3dff,var(--a));cursor:pointer;box-shadow:0 4px 18px #ff3df255;transition:.15s}
+button:active{transform:scale(.95)}button:disabled{opacity:.4;box-shadow:none}
+.alt{background:linear-gradient(120deg,#0072ff,var(--b))}.gold{background:linear-gradient(120deg,#ff9f00,var(--c));color:#2a1a00}.red{background:linear-gradient(120deg,#c0003a,#ff5252)}.ghost{background:#2a2160;box-shadow:none}
+input{background:#120d33;color:#fff;border:1px solid var(--l);border-radius:12px;padding:11px;font-size:14px;min-width:0;flex:1;width:100%}
+.house{text-align:center;padding:6px 0}.house svg{width:230px;max-width:80%;filter:drop-shadow(0 0 22px var(--a));animation:fl 4s ease-in-out infinite}
+.lvl{display:inline-block;padding:4px 14px;border-radius:99px;background:linear-gradient(120deg,var(--a),var(--b));font-weight:900;margin-top:4px}
+.prog{height:12px;background:#120d33;border-radius:9px;overflow:hidden;margin:8px 0}.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--b),var(--a),var(--c));box-shadow:0 0 12px var(--a)}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:12px}
+.cell{aspect-ratio:1;padding:0;font-size:22px;border-radius:12px;background:linear-gradient(140deg,#4b3a9a,#2a2160);border:1px solid #6f5fd0;border-bottom:4px solid #3b2c8a;box-shadow:none}
+.cell.safe{background:#0f0a2c;border:1px solid #2b2370;color:var(--b)}.cell.mine{background:#6b1038;border-color:#ff4d8d}
+.big{width:100%;padding:26px;font-size:22px;border-radius:22px;margin-top:6px}
+.tag{padding:3px 9px;border-radius:9px;font-size:12px;font-weight:700;background:#2a2160}.ok{color:#48ff9b}.bad{color:#ff5d7a}
+.pl{padding:10px;border:1px solid var(--l);border-radius:14px;margin-top:8px;font-size:13px;cursor:pointer;background:#120d33}.pl.bl{border-color:#ff5d7a}
+#status{position:fixed;left:12px;right:12px;bottom:84px;max-width:476px;margin:auto;padding:12px;border-radius:14px;background:#000c;border:1px solid var(--a);font-size:13px;text-align:center;display:none}
+#status:not(:empty){display:block}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#0a0722ee;border-top:1px solid var(--l);backdrop-filter:blur(10px)}
+nav button{flex:1;max-width:120px;background:transparent;box-shadow:none;color:var(--m);padding:8px 2px;font-size:11px}nav button b{display:block;font-size:22px}
+nav button.on{color:#fff;background:linear-gradient(180deg,#7b3dff55,transparent);border-radius:14px;text-shadow:0 0 12px var(--a)}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#cbd9ff;margin:6px 0 0}
+</style>
 </head>
-<body><main class="wrap">
-  <header><div class="eyebrow">Telegram Mini App</div><h1>💎 Мины</h1><p>Открывай безопасные клетки. Собирай игровые монеты.</p></header>
-  <section class="panel"><h2>👤 Профиль</h2><p class="muted" id="profile">Загрузка профиля...</p><div class="statline">
-    <div class="stat"><b id="coins">—</b><small>Монеты</small></div><div class="stat"><b id="games">—</b><small>Игр</small></div><div class="stat"><b id="wins">—</b><small>Побед</small></div>
-  </div><h2 style="margin-top:20px">✏️ Игровой ник</h2><form id="nickname-form" class="form"><input id="nickname" maxlength="24" placeholder="Ник (пусто — имя Telegram)" autocomplete="off"><button type="submit">Сохранить</button></form></section>
-  <section class="panel"><h2>🎮 Поле 5 × 5</h2><p class="muted">На поле 5 мин. Открой все 20 безопасных клеток и получи 50 игровых монет. Проигрыш не списывает монеты.</p><button id="new-game" class="outline">Начать новую игру</button><div id="grid" class="grid" aria-label="Игровое поле"></div><div id="status" role="status">Подключение к серверу...</div></section>
-  <section class="panel"><h2>🔧 Проверка подключения</h2>
-    <p class="muted">Проверка API и SQLite3: создание, запись, чтение, изменение, удаление.</p>
-    <button id="diagnose" class="outline">Проверить базу данных</button>
-    <pre id="debug-output" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#cbd9ff" aria-live="polite"></pre>
-  </section>
-  <p class="foot">Только виртуальные игровые монеты. Без ставок, платежей и вывода денег.</p>
-</main><script src="./app.js"></script></body></html>
+<body><div class="bg"></div>
+<main class="wrap">
+<header>
+ <svg viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd400"/><stop offset=".5" stop-color="#ff3df2"/><stop offset="1" stop-color="#00e5ff"/></linearGradient></defs>
+ <path d="M32 5 3 30h8v27h42V30h8z" fill="url(#g)"/><path d="M32 5 3 30h58z" fill="#0004"/><rect x="26" y="36" width="12" height="21" rx="2" fill="#150a3a"/><rect x="14" y="34" width="8" height="8" rx="1" fill="#150a3a"/><rect x="42" y="34" width="8" height="8" rx="1" fill="#150a3a"/><path d="M44 8h8v14l-8-7z" fill="url(#g)"/></svg>
+ <div><h1>BuildHouse</h1><small>строй · качай · богатей</small></div>
+</header>
+<div class="bar"><div class="cur">💰 <span id="coins">—</span></div><div class="cur gem">💎 <span id="gems">—</span></div></div>
+<div id="view"><div class="panel m">Загрузка...</div></div>
+</main>
+<div id="status" role="status"></div>
+<nav id="nav"></nav>
+<script src="./app.js?v=3"></script>
+</body></html>

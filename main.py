@@ -134,7 +134,7 @@ def authenticate(init_data: str) -> dict:
     if not BOT_TOKEN:
         raise HTTPException(503, 'BOT_TOKEN не настроен на сервере')
     try:
-        return verify_init_data(init_data, BOT_TOKEN)
+        user = verify_init_data(init_data, BOT_TOKEN)
     except AuthError as exc:
         log.warning('Telegram authorization failed: %s (init_data length=%d)', exc.code, len(init_data or ''))
         messages = {
@@ -146,6 +146,9 @@ def authenticate(init_data: str) -> dict:
         }
         detail = messages.get(exc.code, f'Не удалось подтвердить профиль Telegram ({exc.code}).')
         raise HTTPException(401, detail)
+    import buildhouse
+    buildhouse.touch(user)  # блокировка + last_seen
+    return user
 
 
 def auth_request(request: Request) -> dict:
@@ -387,3 +390,7 @@ def open_cell(data: Pick, request: Request):
         return {'game': game_json(updated), 'player': player_json(player),
                 'message': ('Победа! +50 игровых монет' if status == 'won' else
                             'Попалась мина! Начни новую игру.' if status == 'lost' else 'Клетка открыта')}
+
+
+import buildhouse  # noqa: E402  (BuildHouse: дом, валюты, админ-панель)
+app.include_router(buildhouse.router)
