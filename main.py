@@ -66,6 +66,18 @@ def authenticate(init_data: str):
         raise HTTPException(401, 'Открой Mini App кнопкой «Открыть» внутри Telegram')
     try:
         params = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+        received_hash = params.pop('hash')   # убираем ТОЛЬКО hash, signature остаётся
+        auth_date = int(params['auth_date'])
+        now = int(time.time())
+        if auth_date > now + 60 or now - auth_date > 86400:
+            raise ValueError('expired')
+
+        data_check = '\n'.join(f'{k}={v}' for k, v in sorted(params.items()))
+        secret = hmac.new(b'WebAppData', BOT_TOKEN.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(received_hash, expected):
+            raise ValueError('invalid signature')
+        user = json.loads(params['user'])
         received_hash = params.pop('hash')
         params.pop('signature', None)
         auth_date = int(params['auth_date'])
