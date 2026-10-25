@@ -1,7 +1,7 @@
 // Если Mini App открывается с Render, ничего не меняй: оставь "".
 // Если Mini App открывается с GitHub Pages, вставь сюда Render URL:
 // const API_BASE = "https://имя-приложения.onrender.com";
-const API_BASE = "";
+const API_BASE = "https://telegram-miniapp-i49m.onrender.com";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready();
