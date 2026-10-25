@@ -7,7 +7,6 @@ from buildhouse import S, view, _claim, MAXLV, ADMIN_ID
 
 router = APIRouter()
 BETS = [200, 500, 1000, 3000, 5000, 10000, 50000]
-from catalog import CARS, CASES, bonus
 
 
 @contextmanager
@@ -117,82 +116,6 @@ def mines_cash(request: Request):
 
 
 # ---------------------------------------------------------------- кейсы с машинами
-def car_row(r):
-    n, v = CARS[int(r['car'])]
-    return {'id': r['id'], 'idx': int(r['car']), 'name': n, 'value': v, 'bonus': bonus(v), 'parked': bool(r['parked'])}
-
-
-@router.get('/api/bh/garage')
-def garage(request: Request):
-    u = M.auth_request(request)
-    with T() as db:
-        rows = db.execute('SELECT id, car, parked FROM cars WHERE telegram_id=? LIMIT 300', (u['id'],)).fetchall()
-    cars = sorted((car_row(r) for r in rows), key=lambda c: (not c['parked'], -c['value']))
-    cases = {}
-    for k, c in CASES.items():
-        s = sum(c['drops'].values())
-        cases[k] = {'name': c['name'], 'price': c['price'],
-                    'drops': [{'idx': i, 'name': CARS[i][0], 'value': CARS[i][1], 'p': round(w / s * 100, 2)} for i, w in c['drops'].items()]}
-    return {'cars': cars, 'cases': cases}
-
-
-class Case(BaseModel):
-    case: str
-
-
-@router.post('/api/bh/case')
-def open_case(d: Case, request: Request):
-    u = M.auth_request(request)
-    c = CASES.get(d.case)
-    if not c:
-        raise HTTPException(400, 'Нет такого кейса')
-    with T() as db:
-        db.execute('BEGIN IMMEDIATE')
-        if view(db, u)['player']['coins'] < c['price']:
-            raise HTTPException(402, 'Не хватает долларов')
-        idx = random.SystemRandom().choices(list(c['drops']), weights=list(c['drops'].values()))[0]
-        db.execute('UPDATE players SET coins=coins-? WHERE telegram_id=?', (c['price'], u['id']))
-        cur_ = db.execute('INSERT INTO cars (telegram_id, car, ts) VALUES (?,?,?)', (u['id'], str(idx), int(time.time())))
-        n, v = CARS[idx]
-        return {**view(db, u), 'car': {'id': cur_.lastrowid, 'idx': idx, 'name': n, 'value': v, 'bonus': bonus(v)}}
-
-
-class Sell(BaseModel):
-    id: int
-
-
-@router.post('/api/bh/sell')
-def sell(d: Sell, request: Request):
-    u = M.auth_request(request)
-    with T() as db:
-        db.execute('BEGIN IMMEDIATE')
-        r = db.execute('SELECT car, parked FROM cars WHERE id=? AND telegram_id=?', (d.id, u['id'])).fetchone()
-        if not r:
-            raise HTTPException(404, 'Машина не найдена')
-        if r['parked']:
-            _claim(db, u)  # доход до продажи считаем по старой ставке
-        db.execute('DELETE FROM cars WHERE id=?', (d.id,))
-        v = CARS[int(r['car'])][1]
-        pay(db, u, v)
-        return {**view(db, u), 'got': v}
-
-
-class Park(BaseModel):
-    id: int
-
-
-@router.post('/api/bh/park')
-def park(d: Park, request: Request):
-    u = M.auth_request(request)
-    with T() as db:
-        db.execute('BEGIN IMMEDIATE')
-        if d.id and not db.execute('SELECT 1 FROM cars WHERE id=? AND telegram_id=?', (d.id, u['id'])).fetchone():
-            raise HTTPException(404, 'Машина не найдена')
-        _claim(db, u)
-        db.execute('UPDATE cars SET parked=0 WHERE telegram_id=?', (u['id'],))
-        if d.id:
-            db.execute('UPDATE cars SET parked=1 WHERE id=?', (d.id,))
-        return view(db, u)
 
 
 # ------------------------------------------------------------ магазин за звёзды

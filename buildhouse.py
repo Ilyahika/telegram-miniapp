@@ -9,7 +9,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from catalog import car_info
+
 from config import ADMIN_ID
 from auth import current_user
 from db import session
@@ -70,24 +70,16 @@ def view(db, user: dict) -> dict:
         coins, gems = max(coins, INF), max(gems, INF)
 
     parked = db.execute('SELECT car FROM cars WHERE telegram_id=? AND parked=1 LIMIT 1', (uid,)).fetchone()
-    car = car_info(int(parked['car'])) if parked else None
-    car_bonus = car['bonus'] if car else 0
 
-    level = min(max(b['house'], 1), MAX_LEVEL)
-    income = house_income(level) + car_bonus                       # доход с учётом машины
+    level = min(max(b['house'], 1), MAX_LEVEL)                    # доход с учётом машины
     energy = min(MAX_ENERGY, b['energy'] + (now - b['energy_ts']) / ENERGY_REGEN_SEC)
-    pending = int(min(now - b['last_claim'], CAP_HOURS * 3600) * income / 3600)  # накопленный, но не забранный доход
     can_up = level < MAX_LEVEL
     return {
         'player': player_json(p, coins), 'gems': gems, 'avatar': b['avatar'],
         'energy': int(energy), 'max_energy': MAX_ENERGY,
         'daily_ready': now - b['last_daily'] >= DAILY_COOLDOWN,
-        'is_admin': uid == ADMIN_ID, 'car': car,
-        'house': {'level': level, 'name': HOUSE_NAMES[level - 1], 'income': income, 'base_income': house_income(level),
-                  'cap_hours': CAP_HOURS, 'pending': pending, 'max': MAX_LEVEL,
                   'next_cost': upgrade_cost(level) if can_up else None,
-                  'next_income': house_income(level + 1) + car_bonus if can_up else None,
-                  'next_stars': star_price(level) if can_up else None}}
+                  'next_stars': star_price(level) if can_up else None}
 
 
 def claim_pending(db, user: dict) -> int:

@@ -245,36 +245,6 @@ function minesV() {
   return `${setup}${game ? `<div class="panel"><h2>💣 Мины · ставка $${fmt(game.bet)}</h2>${info}<div class="grid">${cells}</div></div>` : ''}`;
 }
 
-/** Кейсы и гараж. */
-function casesV() {
-  if (!gar) return '<div class="panel splash"><div class="spin"></div>Загрузка…</div>';
-  const cases = Object.entries(gar.cases).map(([k, c]) => {
-    const best = c.drops.reduce((a, d) => d.value > a.value ? d : a, c.drops[0]);
-    return `<div class="panel"><div class="row"><div style="flex:1;min-width:0"><h2 style="margin:0">📦 ${esc(c.name)}</h2>
-      <span class="m">${c.drops.length} машин · лучшая: ${esc(best.name)} ($${fmt(best.value)})</span></div>
-      <button onclick="openCase('${k}')" ${S.player.coins < c.price ? 'disabled' : ''}>$${fmt(c.price)}</button></div>
-      <details><summary>Что может выпасть</summary>${c.drops.map(d => `<p class="m">${esc(d.name)} — $${fmt(d.value)} · ${d.p}%</p>`).join('')}</details></div>`;
-  }).join('');
-  const total = gar.cars.reduce((a, c) => a + c.value, 0);
-  const cars = gar.cars.map(c => `<div class="car"><span>${c.parked ? '🅿️' : '🚗'}</span>
-      <div class="grow"><b>${esc(c.name)}</b><div class="m">$${fmt(c.value)} · +$${fmt(c.bonus)}/час</div></div>
-      <button class="ghost sm" onclick="park(${c.parked ? 0 : c.id})">${c.parked ? 'Снять' : 'Парковка'}</button>
-      <button class="sm" onclick="sell(${c.id})">Продать</button></div>`).join('') || '<p class="m">Пусто — открой кейс!</p>';
-  return `${drop ? `<div class="drop"><div style="font-size:50px">🚗</div><h2>${esc(drop.name)}</h2><p>Стоит $${fmt(drop.value)} · бонус +$${fmt(drop.bonus)}/час</p></div>` : ''}${cases}
-    <div class="panel"><h2>🚘 Гараж (${gar.cars.length}) · $${fmt(total)}</h2><p class="m">Припаркованная машина добавляет доход дома.</p>${cars}</div>`;
-}
-
-/** Рейтинг игроков. */
-function topV() {
-  const medal = i => ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
-  const rows = top ? top.top.map(p => `<div class="${p.id === S.player.telegram_id ? 'me' : ''}"><span class="rk">${p.rank <= 3 ? medal(p.rank - 1) : p.rank}</span><span>${esc(p.avatar)}</span><span>${esc(p.name)}</span>
-      <b class="r">${topBy === 'house' ? 'ур. ' + p.house : '$' + fmt(p.coins)}</b></div>`).join('') + `<p class="m">Твоё место: ${top.me ?? '—'} из ${top.total}</p>` : '<div class="spin"></div>';
-  return `<div class="panel"><h2>🏆 Рейтинг игроков</h2>
-    <div class="row"><button class="chip ${topBy === 'house' ? 'on' : ''}" onclick="loadTop('house')">🏠 По дому</button><button class="chip ${topBy === 'coins' ? 'on' : ''}" onclick="loadTop('coins')">💵 По деньгам</button></div>
-    <div class="row" style="margin-top:8px"><input id="topq" placeholder="Поиск по нику" value="${esc(topQ)}" onkeydown="if(event.key==='Enter')loadTop(topBy)"><button class="ghost" onclick="loadTop(topBy)">Найти</button></div>
-    <div class="list">${rows}</div></div>`;
-}
-
 /** Магазин: уровень за звёзды и обмен ⭐ → $. */
 function shopV() {
   const h = S.house, rate = 500 * h.level;
