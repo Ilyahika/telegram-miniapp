@@ -1,218 +1,264 @@
-"""Telegram Mini App: aiogram 3.31 + FastAPI + SQLite.
-
-Run on Render as a Web Service with:
-    uvicorn main:app --host 0.0.0.0 --port $PORT
-
-Required environment variable:
-    BOT_TOKEN = your BotFather bot token
-Optional:
-    WEBAPP_URL = GitHub Pages Mini App URL (otherwise use Render URL)
-    DB_PATH = location for SQLite file (on a paid persistent disk)
-"""
+import asyncio
 import hashlib
+import hmac
+import json
 import logging
 import os
+import random
+import re
 import sqlite3
+import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlsplit
 
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update, WebAppInfo
-from aiogram.utils.web_app import safe_parse_webapp_init_data
-from fastapi import FastAPI, Header, HTTPException, Request
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent
+BOT_TOKEN = os.getenv('BOT_TOKEN', '').strip()  # Токен хранится в Render -> Environment!
+WEBAPP_URL = os.getenv('WEBAPP_URL', '').strip().rstrip('/') + '/'
+DB_PATH = Path(os.getenv('DB_PATH', str(ROOT / 'database.db')))
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
-
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-
-WEBAPP_URL = os.environ.get("WEBAPP_URL", RENDER_URL).strip()
-
-DB_PATH = Path(os.environ.get("DB_PATH", str(ROOT / "database.db")))
-# A per-bot webhook secret. Telegram sends it in a protected request header.
-WEBHOOK_SECRET = hashlib.sha256(BOT_TOKEN.encode()).hexdigest() if BOT_TOKEN else ""
-
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('miniapp')
 dp = Dispatcher()
 
 
-def open_db():
-    conn = sqlite3.connect(DB_PATH, timeout=15)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def create_db():
+def connection():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open_db() as db:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                telegram_id INTEGER PRIMARY KEY,
-                first_name TEXT NOT NULL,
-                username TEXT,
-                clicks INTEGER NOT NULL DEFAULT 0,
-                coins INTEGER NOT NULL DEFAULT 0
-            )
-        """)
+    db = sqlite3.connect(DB_PATH, timeout=15)
+    db.row_factory = sqlite3.Row
+    db.execute('PRAGMA busy_timeout=15000')
+    return db
 
 
-def get_or_create_user(user):
-    with open_db() as db:
-        db.execute("""
-            INSERT INTO users(telegram_id, first_name, username)
-            VALUES (?, ?, ?)
-            ON CONFLICT(telegram_id) DO UPDATE SET
-                first_name = excluded.first_name,
-                username = excluded.username
-        """, (user.id, user.first_name, user.username))
-        return dict(db.execute(
-            "SELECT * FROM users WHERE telegram_id = ?", (user.id,)
-        ).fetchone())
+def init_db():
+    with connection() as db:
+        db.execute('''CREATE TABLE IF NOT EXISTS players (
+            telegram_id INTEGER PRIMARY KEY,
+            telegram_name TEXT NOT NULL,
+            nickname TEXT,
+            coins INTEGER NOT NULL DEFAULT 0,
+            games_played INTEGER NOT NULL DEFAULT 0,
+            games_won INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )''')
+        db.execute('''CREATE TABLE IF NOT EXISTS mines_games (
+            telegram_id INTEGER PRIMARY KEY,
+            mines_json TEXT NOT NULL,
+            opened_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )''')
 
 
-def authorized_user(header: str | None):
-    if not header or not header.startswith("tma "):
-        raise HTTPException(401, "Открой Mini App кнопкой внутри Telegram")
+def authenticate(init_data: str):
+    """Telegram WebApp initData verified using the bot token and HMAC."""
+    if not BOT_TOKEN:
+        raise HTTPException(503, 'BOT_TOKEN не настроен на сервере')
+    if not init_data:
+        raise HTTPException(401, 'Открой Mini App кнопкой «Открыть» внутри Telegram')
     try:
-        parsed = safe_parse_webapp_init_data(
-            token=BOT_TOKEN, init_data=header[4:]
-        )
-    except (ValueError, TypeError) as exc:
-        raise HTTPException(401, "Ошибка проверки подписи Telegram") from exc
-    if not parsed.user:
-        raise HTTPException(401, "Telegram не передал данные пользователя")
-    now = datetime.now(timezone.utc)
-    if not (now - timedelta(minutes=5) <= parsed.auth_date <= now + timedelta(minutes=5)):
-        # Allow an initData token to be used for up to 24 hours.
-        if parsed.auth_date < now - timedelta(hours=24) or parsed.auth_date > now + timedelta(minutes=5):
-            raise HTTPException(401, "Сессия устарела. Закрой и открой Mini App заново")
-    return parsed.user
+        params = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+        received_hash = params.pop('hash')
+        params.pop('signature', None)
+        auth_date = int(params['auth_date'])
+        now = int(time.time())
+        if auth_date > now + 60 or now - auth_date > 86400:
+            raise ValueError('expired')
+        data_check = '\n'.join(f'{k}={v}' for k, v in sorted(params.items()))
+        secret = hmac.new(b'WebAppData', BOT_TOKEN.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(received_hash, expected):
+            raise ValueError('invalid signature')
+        user = json.loads(params['user'])
+        user_id = int(user['id'])
+        if user_id <= 0:
+            raise ValueError('invalid id')
+        return {'id': user_id, 'first_name': str(user.get('first_name') or 'Игрок')[:100],
+                'username': str(user.get('username') or '')[:100]}
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(401, 'Не удалось подтвердить профиль Telegram. Переоткрой приложение.') from exc
 
 
-@dp.message(CommandStart())
-async def on_start(message: Message):
-    if not WEBAPP_URL.startswith("https://"):
-        await message.answer("Администратор ещё не настроил ссылку WEBAPP_URL")
-        return
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="🚀 Открыть",
-            web_app=WebAppInfo(url=WEBAPP_URL),
-        )
-    ]])
-    await message.answer("Привет! Твой профиль и монеты уже ждут тебя 👇", reply_markup=keyboard)
+def get_player(db, user):
+    name = user['first_name']
+    db.execute('''INSERT OR IGNORE INTO players (telegram_id, telegram_name, created_at)
+                  VALUES (?, ?, ?)''', (user['id'], name, int(time.time())))
+    db.execute('UPDATE players SET telegram_name=? WHERE telegram_id=?', (name, user['id']))
+    return db.execute('SELECT * FROM players WHERE telegram_id=?', (user['id'],)).fetchone()
+
+
+def player_json(row):
+    return {'telegram_id': row['telegram_id'], 'telegram_name': row['telegram_name'],
+            'nickname': row['nickname'] or row['telegram_name'], 'custom_nickname': row['nickname'],
+            'coins': row['coins'], 'games_played': row['games_played'], 'games_won': row['games_won']}
+
+
+def game_json(row):
+    if row is None:
+        return None
+    mines = set(json.loads(row['mines_json']))
+    opened = json.loads(row['opened_json'])
+    status = row['status']
+    cells = []
+    for index in range(25):
+        if index not in opened:
+            cells.append({'state': 'closed'})
+        elif index in mines:
+            cells.append({'state': 'mine'})
+        else:
+            x, y = index % 5, index // 5
+            around = sum(((ny * 5 + nx) in mines)
+                         for ny in range(max(0, y - 1), min(5, y + 2))
+                         for nx in range(max(0, x - 1), min(5, x + 2)) if (nx, ny) != (x, y))
+            cells.append({'state': 'safe', 'around': around})
+    return {'status': status, 'opened': len(opened), 'total_safe': 20, 'cells': cells}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("ENV TOKEN:", bool(os.getenv("BOT_TOKEN")))
-    print("PYTHON TOKEN:", bool(BOT_TOKEN))
     if not BOT_TOKEN:
-        print("BOT_TOKEN найден:", bool(os.getenv("BOT_TOKEN")))
-        print("WEBAPP_URL найден:", bool(os.getenv("WEBAPP_URL")))
-        raise RuntimeError("Добавь BOT_TOKEN в Environment на Render")
-    create_db()
+        raise RuntimeError('Добавь BOT_TOKEN в Render -> Environment')
+    if not WEBAPP_URL.startswith('https://'):
+        raise RuntimeError('Добавь ссылку GitHub Pages (https://...) в WEBAPP_URL')
+    init_db()
     bot = Bot(token=BOT_TOKEN)
+    await bot.delete_webhook(drop_pending_updates=True)
+    polling = asyncio.create_task(dp.start_polling(bot))
     app.state.bot = bot
     try:
-        if RENDER_URL:
-            await bot.set_webhook(
-                url=f"{RENDER_URL}/telegram/webhook",
-                secret_token=WEBHOOK_SECRET,
-                drop_pending_updates=False,
-            )
-            logger.info("Webhook registered at %s", RENDER_URL)
-        else:
-            logger.warning("No RENDER_EXTERNAL_URL; webhook is not registered locally")
         yield
     finally:
-        # Do not remove the webhook here: a Render redeploy or sleep is normal.
+        polling.cancel()
+        try:
+            await polling
+        except asyncio.CancelledError:
+            pass
         await bot.session.close()
 
 
 app = FastAPI(lifespan=lifespan)
-
-# Needed when WEBAPP_URL points to GitHub Pages instead of the Render frontend.
-allowed_origins = []
-for url in (RENDER_URL, WEBAPP_URL):
-    parsed = urlparse(url)
-    if parsed.scheme == "https" and parsed.netloc:
-        origin = f"{parsed.scheme}://{parsed.netloc}"
-        if origin not in allowed_origins:
-            allowed_origins.append(origin)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type"],
-)
+origin = WEBAPP_URL.rstrip('/')
+app.add_middleware(CORSMiddleware, allow_origins=[origin], allow_methods=['GET', 'POST'],
+                   allow_headers=['Content-Type', 'X-Telegram-Init-Data'])
 
 
-@app.get("/")
-async def index():
-    return FileResponse(ROOT / "index.html")
+@dp.message(CommandStart())
+async def start(message: Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text='🚀 Открыть', web_app=WebAppInfo(url=WEBAPP_URL))]])
+    await message.answer('🎮 Профиль и игра «Мины» доступны в Mini App!', reply_markup=kb)
 
 
-@app.get("/app.js")
-async def javascript():
-    return FileResponse(ROOT / "app.js", media_type="application/javascript")
+@app.get('/health')
+def health():
+    return {'status': 'ok'}
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+@app.get('/')
+def index():
+    return FileResponse(ROOT / 'index.html')
 
 
-@app.post("/telegram/webhook")
-async def telegram_webhook(
-    request: Request,
-    x_telegram_bot_api_secret_token: str | None = Header(default=None),
-):
-    if x_telegram_bot_api_secret_token != WEBHOOK_SECRET:
-        raise HTTPException(403, "Invalid Telegram webhook secret")
-    payload = await request.json()
-    update = Update.model_validate(payload, context={"bot": request.app.state.bot})
-    await dp.feed_update(request.app.state.bot, update)
-    return {"ok": True}
+@app.get('/app.js')
+def javascript():
+    return FileResponse(ROOT / 'app.js', media_type='application/javascript')
 
 
-@app.get("/api/me")
-async def profile(authorization: str | None = Header(default=None)):
-    user = authorized_user(authorization)
-    return get_or_create_user(user)
+def auth_request(request: Request):
+    return authenticate(request.headers.get('X-Telegram-Init-Data', ''))
 
 
-@app.post("/api/click")
-async def click(authorization: str | None = Header(default=None)):
-    user = authorized_user(authorization)
-    get_or_create_user(user)
-    with open_db() as db:
-        db.execute("""
-            UPDATE users SET clicks = clicks + 1, coins = coins + 5
-            WHERE telegram_id = ?
-        """, (user.id,))
-        result = db.execute("SELECT clicks, coins FROM users WHERE telegram_id = ?", (user.id,)).fetchone()
-        return dict(result)
+@app.get('/api/profile')
+def profile(request: Request):
+    user = auth_request(request)
+    with connection() as db:
+        row = get_player(db, user)
+        return {'player': player_json(row)}
 
 
-@app.post("/api/reset")
-async def reset(authorization: str | None = Header(default=None)):
-    user = authorized_user(authorization)
-    get_or_create_user(user)
-    with open_db() as db:
-        db.execute("UPDATE users SET clicks = 0 WHERE telegram_id = ?", (user.id,))
-        result = db.execute("SELECT clicks, coins FROM users WHERE telegram_id = ?", (user.id,)).fetchone()
-        return dict(result)
+class Nickname(BaseModel):
+    nickname: str
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
+@app.post('/api/nickname')
+def nickname(data: Nickname, request: Request):
+    user = auth_request(request)
+    new_name = data.nickname.strip()
+    if len(new_name) > 24 or (new_name and (len(new_name) < 2 or not re.fullmatch(r'[\w -]+', new_name, re.UNICODE))):
+        raise HTTPException(400, 'Ник: 2–24 символа, буквы, цифры, пробел, _ или -. Пустое поле — сброс.')
+    with connection() as db:
+        get_player(db, user)
+        db.execute('UPDATE players SET nickname=? WHERE telegram_id=?', (new_name or None, user['id']))
+        row = db.execute('SELECT * FROM players WHERE telegram_id=?', (user['id'],)).fetchone()
+        return {'player': player_json(row)}
+
+
+@app.get('/api/mines')
+def mines_status(request: Request):
+    user = auth_request(request)
+    with connection() as db:
+        get_player(db, user)
+        game = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
+        return {'game': game_json(game)}
+
+
+@app.post('/api/mines/new')
+def new_game(request: Request):
+    user = auth_request(request)
+    with connection() as db:
+        get_player(db, user)
+        old = db.execute('SELECT status FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
+        if old and old['status'] == 'playing':
+            raise HTTPException(409, 'Сначала закончи текущую игру')
+        chosen = sorted(random.SystemRandom().sample(range(25), 5))
+        db.execute('''INSERT OR REPLACE INTO mines_games
+            (telegram_id, mines_json, opened_json, status, created_at) VALUES (?, ?, ?, ?, ?)''',
+                   (user['id'], json.dumps(chosen), '[]', 'playing', int(time.time())))
+        db.execute('UPDATE players SET games_played=games_played+1 WHERE telegram_id=?', (user['id'],))
+        row = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
+        player = db.execute('SELECT * FROM players WHERE telegram_id=?', (user['id'],)).fetchone()
+        return {'game': game_json(row), 'player': player_json(player)}
+
+
+class Pick(BaseModel):
+    cell: int
+
+
+@app.post('/api/mines/open')
+def open_cell(data: Pick, request: Request):
+    user = auth_request(request)
+    if not 0 <= data.cell < 25:
+        raise HTTPException(400, 'Неверная клетка')
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        get_player(db, user)
+        row = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
+        if not row or row['status'] != 'playing':
+            raise HTTPException(409, 'Начни новую игру')
+        opened = json.loads(row['opened_json'])
+        if data.cell in opened:
+            raise HTTPException(409, 'Эта клетка уже открыта')
+        mines = set(json.loads(row['mines_json']))
+        opened.append(data.cell)
+        if data.cell in mines:
+            status = 'lost'
+        elif len(opened) == 20:
+            status = 'won'
+            db.execute('UPDATE players SET coins=coins+50, games_won=games_won+1 WHERE telegram_id=?', (user['id'],))
+        else:
+            status = 'playing'
+        db.execute('UPDATE mines_games SET opened_json=?, status=? WHERE telegram_id=?',
+                   (json.dumps(opened), status, user['id']))
+        updated = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
+        player = db.execute('SELECT * FROM players WHERE telegram_id=?', (user['id'],)).fetchone()
+        return {'game': game_json(updated), 'player': player_json(player),
+                'message': ('Победа! +50 игровых монет' if status == 'won' else
+                            'Попалась мина! Начни новую игру.' if status == 'lost' else 'Клетка открыта')}

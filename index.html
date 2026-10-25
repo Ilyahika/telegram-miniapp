@@ -1,52 +1,22 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#10152a" />
-  <title>Telegram Mini App</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Мины • Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif; color: #f7f8ff; background: radial-gradient(circle at top, #252056, #10152a 52%, #0e1224); }
-    main { max-width: 460px; margin: auto; padding: 22px 18px 48px; }
-    header { text-align: center; padding: 20px 0; }
-    .logo { font-size: 50px; }
-    h1 { font-size: 27px; margin: 5px 0; }
-    .sub, .muted { color: #b0b6cf; font-size: 14px; }
-    .card { margin: 15px 0; padding: 20px; background: #ffffff10; border: 1px solid #ffffff22; border-radius: 21px; box-shadow: 0 10px 30px #00000021; }
-    .card h2 { margin: 0 0 13px; font-size: 18px; }
-    #name { font-size: 20px; font-weight: 700; margin: 4px 0; }
-    .line { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
-    .number { font-size: 40px; font-weight: 800; color: #b19cff; }
-    button { width: 100%; border: 0; margin-top: 11px; padding: 15px; border-radius: 12px; background: linear-gradient(105deg,#526dfd,#9154f3); color: white; font-size: 15px; font-weight: 750; cursor: pointer; }
-    button.secondary { background: #343b56; }
-    button:disabled { opacity: .5; cursor: wait; }
-    #status { text-align: center; margin: 18px 0; min-height: 40px; line-height: 1.5; }
+    :root{color-scheme:dark;--bg:#0a1120;--panel:#172238;--line:#293a57;--text:#eff4ff;--muted:#9aabc7;--accent:#8b7cff}
+    *{box-sizing:border-box}body{background:radial-gradient(ellipse at top,#17294d,#0a1120 65%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;min-height:100vh;padding:20px 15px 48px}
+    .wrap{max-width:490px;margin:auto}header{text-align:center;margin:12px 0 25px}.eyebrow{color:#a7a4ff;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase}h1{margin:7px 0 6px;font-size:32px}header p{color:var(--muted);margin:0;font-size:14px}
+    .panel{background:rgba(23,34,56,.96);border:1px solid var(--line);border-radius:20px;padding:19px;margin:14px 0;box-shadow:0 12px 30px #03071125}h2{font-size:18px;margin:0 0 12px}.muted{color:var(--muted);font-size:13px}.statline{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.stat{background:#101b30;border-radius:14px;padding:12px;flex:1;min-width:90px;text-align:center}.stat b{font-size:22px;display:block;color:#c9c5ff}.stat small{color:var(--muted)}
+    .form{display:flex;gap:8px}input{width:100%;min-width:0;background:#0e192c;color:white;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:15px}button{border:0;border-radius:12px;padding:12px 15px;color:#fff;font-weight:750;background:linear-gradient(120deg,#7368ee,#9765e9);cursor:pointer;font-size:14px}button:disabled{opacity:.45;cursor:not-allowed}.outline{background:#303f5b}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:15px}.cell{aspect-ratio:1;padding:0;border:1px solid #6475a6;border-bottom:4px solid #465681;background:linear-gradient(140deg,#435987,#293b65);border-radius:11px;font-size:23px;display:flex;align-items:center;justify-content:center}.cell.open{background:#0e1c33;border-color:#23324e;border-bottom-width:1px;color:#ccd8fc}.cell.mine{background:#603547;border-color:#8e5269}.cell:focus-visible{outline:2px solid white}#status{padding:12px;margin-top:13px;background:#0e192d;color:#b7c6e6;border-radius:11px;font-size:13px;min-height:42px}.foot{color:var(--muted);text-align:center;font-size:12px;line-height:1.5;margin-top:22px}
   </style>
 </head>
-<body>
-<main>
-  <header><div class="logo">🚀</div><h1>Моё Mini App</h1><div class="sub">Профиль игрока + SQLite3</div></header>
-  <section class="card">
-    <h2>👤 Профиль игрока</h2>
-    <p id="name">Загрузка...</p>
-    <div class="muted" id="userid">Telegram ID: —</div>
-  </section>
-  <section class="card">
-    <h2>🏆 Прогресс</h2>
-    <div class="line"><span>🪙 Монеты</span><strong id="coins">0</strong></div>
-    <div class="line" style="margin-top:15px"><span>🎮 Нажатия</span><span class="number" id="clicks">0</span></div>
-    <button id="earn">➕ Нажать (+5 монет)</button>
-    <button id="reset" class="secondary">🔄 Сбросить нажатия</button>
-  </section>
-  <section class="card">
-    <h2>⚡ Действия</h2>
-    <button id="refresh">🔃 Обновить профиль</button>
-    <button id="close" class="secondary">✖ Закрыть Mini App</button>
-  </section>
-  <p id="status" class="muted">Подключение к серверу...</p>
-</main>
-<script src="./app.js?v=2"></script>
-</body>
-</html>
+<body><main class="wrap">
+  <header><div class="eyebrow">Telegram Mini App</div><h1>💎 Мины</h1><p>Открывай безопасные клетки. Собирай игровые монеты.</p></header>
+  <section class="panel"><h2>👤 Профиль</h2><p class="muted" id="profile">Загрузка профиля...</p><div class="statline">
+    <div class="stat"><b id="coins">—</b><small>Монеты</small></div><div class="stat"><b id="games">—</b><small>Игр</small></div><div class="stat"><b id="wins">—</b><small>Побед</small></div>
+  </div><h2 style="margin-top:20px">✏️ Игровой ник</h2><form id="nickname-form" class="form"><input id="nickname" maxlength="24" placeholder="Ник (пусто — имя Telegram)" autocomplete="off"><button type="submit">Сохранить</button></form></section>
+  <section class="panel"><h2>🎮 Поле 5 × 5</h2><p class="muted">На поле 5 мин. Открой все 20 безопасных клеток и получи 50 игровых монет. Проигрыш не списывает монеты.</p><button id="new-game" class="outline">Начать новую игру</button><div id="grid" class="grid" aria-label="Игровое поле"></div><div id="status" role="status">Подключение к серверу...</div></section>
+  <p class="foot">Только виртуальные игровые монеты. Без ставок, платежей и вывода денег.</p>
+</main><script src="./app.js"></script></body></html>
