@@ -30,11 +30,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent
-BOT_TOKEN = os.environ.get("7143276893:AAEBgt6e-8-KZ4pi5P2rybeJruWw64KYWbs", "").strip()
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-WEBAPP_URL = os.environ.get("WEBAPP_URL", RENDER_URL).strip()
-DB_PATH = Path(os.environ.get("DB_PATH", str(ROOT / "database.db")))
 
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+
+WEBAPP_URL = os.environ.get("WEBAPP_URL", RENDER_URL).strip()
+
+DB_PATH = Path(os.environ.get("DB_PATH", str(ROOT / "database.db")))
 # A per-bot webhook secret. Telegram sends it in a protected request header.
 WEBHOOK_SECRET = hashlib.sha256(BOT_TOKEN.encode()).hexdigest() if BOT_TOKEN else ""
 
