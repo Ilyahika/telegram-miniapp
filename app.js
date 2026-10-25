@@ -8,6 +8,7 @@ const VER = new URLSearchParams(document.currentScript?.src.split('?')[1] || '')
 const tg = window.Telegram?.WebApp;                       // объект Telegram WebApp (нет, если открыто в обычном браузере)
 if (tg) { tg.ready(); tg.expand(); tg.disableVerticalSwipes?.(); }  // ready() — убирает загрузчик Telegram; expand() — на весь экран
 
+window.__appStarted = true;
 const $ = id => document.getElementById(id);              // короткий поиск элемента по id
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fmt = n => Number(n ?? 0).toLocaleString('ru-RU');  // 1234567 -> «1 234 567»
@@ -107,28 +108,102 @@ const mult = (k, m) => { let p = .97; for (let i = 0; i < k; i++) p *= (25 - i) 
 const splash = msg => { $('view').innerHTML = `<div class="panel splash"><div class="spin"></div><div>${esc(msg)}</div></div>`; };
 
 /**
- * Запуск приложения:
- *  1) «будим» сервер лёгким запросом /health с таймаутом (бесплатный Render засыпает и просыпается до ~1 минуты);
- *  2) пока ждём — показываем живой счётчик секунд, а не пустую загрузку;
- *  3) грузим состояние игрока; при ошибке — понятное сообщение и кнопка «Повторить».
+ * Запуск приложения с ДИАГНОСТИКОЙ: на экране по шагам видно, что проверено и где именно ломается.
+ * Шаги: JS -> Telegram -> адрес API -> /health (будим сервер) -> /health/db -> /api/bh/state (авторизация).
  */
-async function boot() {
-  const t0 = Date.now();
-  splash('Подключаемся к серверу…');
-  let awake = false;
-  for (let i = 0; i < 15 && !awake; i++) {
-    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
-    try { awake = (await fetch(API_BASE + '/health', {signal: ctl.signal, cache: 'no-store'})).ok; } catch (_) { /* ещё спит */ }
-    clearTimeout(timer);
-    if (!awake) { splash(`Сервер просыпается… ${Math.round((Date.now() - t0) / 1000)} с (обычно до минуты)`); await sleep(2000); }
-  }
-  try {
-    setS(await api('/api/bh/state', undefined, {timeout: 20000, retries: 2}));
-    paint();
-  } catch (e) {
-    $('view').innerHTML = `<div class="panel"><h2>⚠️ Не удалось загрузить</h2><p>${esc(e.message)}</p><button class="full" onclick="boot()">Повторить</button></div>`;
-  }
+const DIAG = [];
+function diagShow(title = 'Диагностика запуска') {
+  const icon = {ok: '✅', fail: '❌', wait: '⏳', warn: '⚠️'};
+  $('view').innerHTML = `<div class="panel"><h2>${esc(title)}</h2>` +
+    DIAG.map(d => `<p style="margin:6px 0;text-align:left">${icon[d.s]} <b>${esc(d.name)}</b><br><small style="opacity:.8">${esc(d.msg)}</small></p>`).join('') + '</div>';
 }
+function diagStep(name) {
+  const d = {name, s: 'wait', msg: 'проверяем…'};
+  DIAG.push(d); diagShow();
+  return (s, msg) => { d.s = s; d.msg = msg; diagShow(); return s === 'ok'; };
+}
+const diagReport = () => DIAG.map(d => `${d.s.toUpperCase()} ${d.name}: ${d.msg}`).join('\n') + `\nURL: ${location.href}\nUA: ${navigator.userAgent}`;
+function diagFail(title) {
+  diagShow(title);
+  $('view').insertAdjacentHTML('beforeend', `<div class="panel"><button class="full" onclick="boot()">🔄 Повторить проверку</button>
+    <button class="full ghost" style="margin-top:8px" onclick="navigator.clipboard?.writeText(diagReport()).then(()=>note('Скопировано'),()=>note('Не удалось скопировать'))">📋 Скопировать отчёт</button>
+    <pre style="white-space:pre-wrap;font-size:11px;text-align:left;margin-top:10px;opacity:.7">${esc(diagReport())}</pre></div>`);
+}
+/** fetch с таймаутом; возвращает {ok, status, ms, json, text} или {err}. */
+async function probe(path, headers = {}, timeout = 8000) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeout), t = Date.now();
+  try {
+    const r = await fetch(API_BASE + path, {signal: ctl.signal, cache: 'no-store', headers});
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch (_) {}
+    return {ok: r.ok, status: r.status, ms: Date.now() - t, json, text: text.slice(0, 200)};
+  } catch (e) { return {err: e.name === 'AbortError' ? `таймаут ${timeout / 1000} с` : `${e.name}: ${e.message}`, ms: Date.now() - t}; }
+  finally { clearTimeout(timer); }
+}
+
+async function boot() {
+  DIAG.length = 0;
+  const t0 = Date.now();
+
+  // 1. JS
+  diagStep('Скрипт приложения (app.js)')('ok', `версия v${VER} запущена`);
+
+  // 2. Telegram
+  const stTg = diagStep('Telegram WebApp');
+  if (!tg) { stTg('fail', 'объект Telegram.WebApp не найден: страница открыта не из Telegram или telegram-web-app.js не загрузился (блокировка/нет интернета)'); return diagFail('Не удалось запустить'); }
+  if (!tg.initData) { stTg('fail', `Telegram есть (платформа: ${tg.platform}), но initData пустой — открой Mini App кнопкой «Открыть» у бота, а не по ссылке в браузере`); return diagFail('Не удалось запустить'); }
+  stTg('ok', `платформа ${tg.platform}, версия ${tg.version}, initData ${tg.initData.length} символов`);
+
+  // 3. Адрес API
+  const stUrl = diagStep('Адрес сервера');
+  const target = API_BASE || location.origin;
+  stUrl('ok', `API: ${target}` + (API_BASE && API_BASE !== location.origin ? ` (страница открыта с ${location.origin} — это ДРУГОЙ адрес, нужен CORS)` : ' (тот же сервер, что отдал страницу)'));
+
+  // 4. /health — «будим» сервер до ~75 секунд
+  const stHealth = diagStep('Сервер отвечает (/health)');
+  let h = null;
+  for (let i = 0; i < 25; i++) {
+    h = await probe('/health');
+    if (h.ok) break;
+    if (h.status) break;                                     // сервер ответил ошибкой — ждать нет смысла
+    stHealth('wait', `нет ответа: ${h.err}. Попытка ${i + 1}/25, прошло ${Math.round((Date.now() - t0) / 1000)} с (Render просыпается до минуты)`);
+    await sleep(2000);
+  }
+  if (!h.ok) {
+    let hint = h.status ? `сервер ответил HTTP ${h.status}: ${h.text}` : `нет связи: ${h.err}`;
+    if (!h.status && API_BASE) {                             // отличаем «адрес мёртв» от «заблокирован CORS»
+      try { await fetch(API_BASE + '/health', {mode: 'no-cors', cache: 'no-store'}); hint += ' → сервер достижим, но браузер блокирует ответ: проверь CORS / WEBAPP_URL на Render'; }
+      catch (_) { hint += ' → адрес недоступен вообще: проверь, что api-base в index.html совпадает с адресом сервиса на Render'; }
+    }
+    stHealth('fail', hint);
+    return diagFail('Сервер недоступен');
+  }
+  stHealth('ok', `ответил за ${h.ms} мс · бот: @${h.json?.bot ?? 'ещё запускается'} · polling: ${h.json?.polling ? 'да' : 'нет'}`);
+
+  // 5. База данных
+  const stDb = diagStep('База данных (/health/db)');
+  const d = await probe('/health/db', {}, 10000);
+  if (!d.ok) stDb('fail', d.status ? `HTTP ${d.status}: ${d.text}` : `нет ответа: ${d.err}`);
+  else stDb(d.json?.tables_ready ? 'ok' : 'warn', d.json?.tables_ready ? `подключена, таблицы на месте (${d.ms} мс)` : `подключена, но таблицы не готовы: ${d.text}`);
+
+  // 6. Авторизация и данные игрока
+  const stState = diagStep('Данные игрока (/api/bh/state)');
+  const s = await probe('/api/bh/state', {'X-Telegram-Init-Data': tg.initData}, 20000);
+  if (!s.ok) {
+    const detail = s.json?.detail || s.text || s.err;
+    stState('fail', `${s.status ? 'HTTP ' + s.status : 'нет ответа'}: ${detail}` +
+      (s.status === 401 ? ' → BOT_TOKEN на сервере не от этого бота или initData устарел' : s.status === 503 ? ' → BOT_TOKEN не задан на Render' : ''));
+    return diagFail('Не удалось получить данные игрока');
+  }
+  stState('ok', `получено за ${s.ms} мс, баланс: ${s.json?.player?.coins ?? '?'}`);
+
+  // Всё хорошо — показываем игру
+  try { setS(s.json); paint(); }
+  catch (e) { DIAG.push({name: 'Отрисовка экрана', s: 'fail', msg: `${e.name}: ${e.message}`}); diagFail('Ошибка отрисовки'); }
+}
+
+/** Любая необработанная ошибка JS — на экран, а не в тишину. */
+window.addEventListener('error', e => { if (!S) { DIAG.push({name: 'Ошибка JavaScript', s: 'fail', msg: `${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`}); diagFail('Ошибка в приложении'); } });
+window.addEventListener('unhandledrejection', e => { if (!S) { DIAG.push({name: 'Необработанная ошибка', s: 'fail', msg: String(e.reason?.message || e.reason)}); diagFail('Ошибка в приложении'); } });
 
 /** Когда пользователь возвращается в приложение после долгого отсутствия — обновляем данные. */
 document.addEventListener('visibilitychange', () => {
@@ -243,6 +318,36 @@ function minesV() {
        <button class="full" onclick="cash()">${game.opened ? `Забрать $${fmt(game.payout)}` : 'Вернуть ставку'}</button>`
     : game.status === 'lost' ? `<p class="bad">💣 Мина! Ставка $${fmt(game.bet)} сгорела.</p>` : `<p class="ok">🏆 Забрано $${fmt(game.payout)} (x${game.mult})</p>`;
   return `${setup}${game ? `<div class="panel"><h2>💣 Мины · ставка $${fmt(game.bet)}</h2>${info}<div class="grid">${cells}</div></div>` : ''}`;
+}
+
+/** Кейсы и гараж. */
+function casesV() {
+  if (!gar) return '<div class="panel splash"><div class="spin"></div>Загрузка…</div>';
+  const cases = Object.entries(gar.cases).map(([k, c]) => {
+    const best = c.drops.reduce((a, d) => d.value > a.value ? d : a, c.drops[0]);
+    return `<div class="panel"><div class="row"><div style="flex:1;min-width:0"><h2 style="margin:0">📦 ${esc(c.name)}</h2>
+      <span class="m">${c.drops.length} машин · лучшая: ${esc(best.name)} ($${fmt(best.value)})</span></div>
+      <button onclick="openCase('${k}')" ${S.player.coins < c.price ? 'disabled' : ''}>$${fmt(c.price)}</button></div>
+      <details><summary>Что может выпасть</summary>${c.drops.map(d => `<p class="m">${esc(d.name)} — $${fmt(d.value)} · ${d.p}%</p>`).join('')}</details></div>`;
+  }).join('');
+  const total = gar.cars.reduce((a, c) => a + c.value, 0);
+  const cars = gar.cars.map(c => `<div class="car"><span>${c.parked ? '🅿️' : '🚗'}</span>
+      <div class="grow"><b>${esc(c.name)}</b><div class="m">$${fmt(c.value)} · +$${fmt(c.bonus)}/час</div></div>
+      <button class="ghost sm" onclick="park(${c.parked ? 0 : c.id})">${c.parked ? 'Снять' : 'Парковка'}</button>
+      <button class="sm" onclick="sell(${c.id})">Продать</button></div>`).join('') || '<p class="m">Пусто — открой кейс!</p>';
+  return `${drop ? `<div class="drop"><div style="font-size:50px">🚗</div><h2>${esc(drop.name)}</h2><p>Стоит $${fmt(drop.value)} · бонус +$${fmt(drop.bonus)}/час</p></div>` : ''}${cases}
+    <div class="panel"><h2>🚘 Гараж (${gar.cars.length}) · $${fmt(total)}</h2><p class="m">Припаркованная машина добавляет доход дома.</p>${cars}</div>`;
+}
+
+/** Рейтинг игроков. */
+function topV() {
+  const medal = i => ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
+  const rows = top ? top.top.map(p => `<div class="${p.id === S.player.telegram_id ? 'me' : ''}"><span class="rk">${p.rank <= 3 ? medal(p.rank - 1) : p.rank}</span><span>${esc(p.avatar)}</span><span>${esc(p.name)}</span>
+      <b class="r">${topBy === 'house' ? 'ур. ' + p.house : '$' + fmt(p.coins)}</b></div>`).join('') + `<p class="m">Твоё место: ${top.me ?? '—'} из ${top.total}</p>` : '<div class="spin"></div>';
+  return `<div class="panel"><h2>🏆 Рейтинг игроков</h2>
+    <div class="row"><button class="chip ${topBy === 'house' ? 'on' : ''}" onclick="loadTop('house')">🏠 По дому</button><button class="chip ${topBy === 'coins' ? 'on' : ''}" onclick="loadTop('coins')">💵 По деньгам</button></div>
+    <div class="row" style="margin-top:8px"><input id="topq" placeholder="Поиск по нику" value="${esc(topQ)}" onkeydown="if(event.key==='Enter')loadTop(topBy)"><button class="ghost" onclick="loadTop(topBy)">Найти</button></div>
+    <div class="list">${rows}</div></div>`;
 }
 
 /** Магазин: уровень за звёзды и обмен ⭐ → $. */
