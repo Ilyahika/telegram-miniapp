@@ -40,6 +40,26 @@ nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;g
 nav button{flex:1;max-width:120px;background:transparent;box-shadow:none;color:var(--m);padding:8px 2px;font-size:11px}nav button b{display:block;font-size:22px}
 nav button.on{color:#fff;background:linear-gradient(180deg,#7b3dff55,transparent);border-radius:14px;text-shadow:0 0 12px var(--a)}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#cbd9ff;margin:6px 0 0}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{padding:16px 10px;border-radius:18px;text-align:center;background:linear-gradient(160deg,#3a2a8a,#1a1240);border:1px solid var(--l);cursor:pointer;font-weight:800}.card i{display:block;font-style:normal;font-size:38px}.card small{display:block;color:var(--m);font-weight:500;margin-top:4px}
+.chip{padding:9px 12px;border-radius:12px;background:#2a2160;font-size:13px;box-shadow:none}.chip.on{background:linear-gradient(120deg,var(--b),#7b3dff);box-shadow:0 0 14px #00e5ff55}
+.top{display:flex;gap:10px;align-items:center;padding:9px 11px;margin-top:6px;border-radius:14px;background:#120d33;border:1px solid var(--l)}.top b{margin-left:auto}.me{border-color:var(--c)}
+input[type=range]{padding:0;accent-color:var(--a)}
+.car{display:flex;align-items:center;gap:8px;padding:8px 10px;margin-top:6px;border-radius:12px;background:#120d33;font-size:13px}.car button{margin-left:auto;padding:7px 11px}
+.drop{text-align:center;padding:14px;border-radius:18px;background:linear-gradient(140deg,#7b3dff55,#ff3df233);border:1px solid var(--a);animation:pop .5s}@keyframes pop{from{transform:scale(.6);opacity:0}}
+/* ===== строгая админ-панель ===== */
+body.adm{background:#0b0e14;color:#d6dbe4;--l:#232a36;--m:#8a94a6;--p:#11151c;--a:#4c8dff;--b:#4c8dff}
+body.adm .bg{display:none}body.adm .wrap{max-width:1080px}
+body.adm h1{background:none;color:#e8ecf3;-webkit-text-fill-color:#e8ecf3;text-shadow:none;font-size:24px}
+body.adm header svg{filter:none;animation:none}body.adm .cur{box-shadow:none;border-radius:8px}
+body.adm .panel{border-radius:8px;box-shadow:none;background:#11151c;border:1px solid #232a36}
+body.adm button{border-radius:6px;box-shadow:none;background:#1b2230;border:1px solid #2b3446;font-weight:600;padding:8px 11px;font-size:12px}
+body.adm button.pri{background:#2459d6;border-color:#2459d6}body.adm button.red{background:#7a1f2b;border-color:#a32d3c}
+body.adm input{border-radius:6px;background:#0b0e14;border-color:#232a36}
+body.adm nav{background:#0b0e14;border-color:#232a36}body.adm nav button.on{background:#1b2230;text-shadow:none;border-radius:6px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.kpi div{padding:12px;border:1px solid #232a36;border-radius:8px;background:#0b0e14}.kpi small{display:block;color:#8a94a6;font-size:11px;text-transform:uppercase;letter-spacing:.06em}.kpi b{font-size:20px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}th{color:#8a94a6;font-weight:600;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em}th,td{padding:8px;border-bottom:1px solid #232a36;white-space:nowrap}tr.bl td{background:#2a1118}td button{margin:1px}
 </style>
 </head>
 <body><div class="bg"></div>
@@ -49,10 +69,10 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#cbd9ff;mar
  <path d="M32 5 3 30h8v27h42V30h8z" fill="url(#g)"/><path d="M32 5 3 30h58z" fill="#0004"/><rect x="26" y="36" width="12" height="21" rx="2" fill="#150a3a"/><rect x="14" y="34" width="8" height="8" rx="1" fill="#150a3a"/><rect x="42" y="34" width="8" height="8" rx="1" fill="#150a3a"/><path d="M44 8h8v14l-8-7z" fill="url(#g)"/></svg>
  <div><h1>BuildHouse</h1><small>строй · качай · богатей</small></div>
 </header>
-<div class="bar"><div class="cur">💰 <span id="coins">—</span></div><div class="cur gem">💎 <span id="gems">—</span></div></div>
+<div class="bar"><div class="cur"><span style="color:#48ff9b">$</span> <span id="coins">—</span></div><div class="cur gem">⭐ <span id="gems">—</span></div></div>
 <div id="view"><div class="panel m">Загрузка...</div></div>
 </main>
 <div id="status" role="status"></div>
 <nav id="nav"></nav>
-<script src="./app.js?v=3"></script>
+<script src="./app.js?v=4"></script>
 </body></html>

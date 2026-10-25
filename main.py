@@ -328,69 +328,7 @@ def nickname(data: Nickname, request: Request):
         return {'player': player_json(row)}
 
 
-@app.get('/api/mines')
-def mines_status(request: Request):
-    user = auth_request(request)
-    with db_session() as db:
-        get_player(db, user)
-        game = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
-        return {'game': game_json(game)}
-
-
-@app.post('/api/mines/new')
-def new_game(request: Request):
-    user = auth_request(request)
-    with db_session() as db:
-        db.execute('BEGIN IMMEDIATE')  # защита от двойного запуска игры
-        get_player(db, user)
-        old = db.execute('SELECT status FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
-        if old and old['status'] == 'playing':
-            raise HTTPException(409, 'Сначала закончи текущую игру')
-        chosen = sorted(random.SystemRandom().sample(range(25), 5))
-        db.execute('''INSERT OR REPLACE INTO mines_games
-            (telegram_id, mines_json, opened_json, status, created_at) VALUES (?, ?, ?, ?, ?)''',
-                   (user['id'], json.dumps(chosen), '[]', 'playing', int(time.time())))
-        db.execute('UPDATE players SET games_played=games_played+1 WHERE telegram_id=?', (user['id'],))
-        row = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
-        player = db.execute('SELECT * FROM players WHERE telegram_id=?', (user['id'],)).fetchone()
-        return {'game': game_json(row), 'player': player_json(player)}
-
-
-class Pick(BaseModel):
-    cell: int
-
-
-@app.post('/api/mines/open')
-def open_cell(data: Pick, request: Request):
-    user = auth_request(request)
-    if not 0 <= data.cell < 25:
-        raise HTTPException(400, 'Неверная клетка')
-    with db_session() as db:
-        db.execute('BEGIN IMMEDIATE')
-        get_player(db, user)
-        row = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
-        if not row or row['status'] != 'playing':
-            raise HTTPException(409, 'Начни новую игру')
-        opened = json.loads(row['opened_json'])
-        if data.cell in opened:
-            raise HTTPException(409, 'Эта клетка уже открыта')
-        mines = set(json.loads(row['mines_json']))
-        opened.append(data.cell)
-        if data.cell in mines:
-            status = 'lost'
-        elif len(opened) == 20:
-            status = 'won'
-            db.execute('UPDATE players SET coins=coins+50, games_won=games_won+1 WHERE telegram_id=?', (user['id'],))
-        else:
-            status = 'playing'
-        db.execute('UPDATE mines_games SET opened_json=?, status=? WHERE telegram_id=?',
-                   (json.dumps(opened), status, user['id']))
-        updated = db.execute('SELECT * FROM mines_games WHERE telegram_id=?', (user['id'],)).fetchone()
-        player = db.execute('SELECT * FROM players WHERE telegram_id=?', (user['id'],)).fetchone()
-        return {'game': game_json(updated), 'player': player_json(player),
-                'message': ('Победа! +50 игровых монет' if status == 'won' else
-                            'Попалась мина! Начни новую игру.' if status == 'lost' else 'Клетка открыта')}
-
-
 import buildhouse  # noqa: E402  (BuildHouse: дом, валюты, админ-панель)
 app.include_router(buildhouse.router)
+import bh2  # noqa: E402  (мины со ставками, кейсы, магазин, рейтинг)
+app.include_router(bh2.router)

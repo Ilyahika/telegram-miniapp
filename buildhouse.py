@@ -7,9 +7,28 @@ import main as M
 ADMIN_ID = int(os.getenv('ADMIN_ID', '1181838335'))
 STARTED = time.time()
 router = APIRouter()
-NAMES = ['Палатка', 'Хижина', 'Домик', 'Коттедж', 'Таунхаус', 'Вилла', 'Особняк', 'Поместье', 'Замок', 'Небоскрёб']
-COST = [500, 1500, 4000, 9000, 20000, 45000, 100000, 220000, 500000]  # цена перехода на уровень 2..10
-INCOME = [20, 50, 110, 220, 420, 800, 1500, 2800, 5000, 9000]       # монет в час
+NAMES = ['Палатка', 'Хижина', 'Домик', 'Коттедж', 'Таунхаус', 'Вилла', 'Особняк', 'Поместье', 'Замок', 'Небоскрёб',
+         'Резиденция', 'Дворец', 'Крепость', 'Башня', 'Комплекс', 'Отель', 'Курорт', 'Остров', 'Квартал', 'Город-сад',
+         'Мегаполис', 'Технопарк', 'Космопорт', 'Орбитальная станция', 'Лунная база', 'Марс-колония', 'Звёздный город',
+         'Галактический хаб', 'Вселенский дворец', 'Обитель богов']
+MAXLV = len(NAMES)
+INF = 10**15
+
+
+def cost(lv):    # цена перехода с уровня lv на lv+1, $
+    return int(500 * 1.55 ** (lv - 1) // 10 * 10)
+
+
+def income(lv):  # доход, $ в час
+    return int(20 * 1.42 ** (lv - 1))
+
+
+def topup(db, u):  # у админа бесконечные ресурсы
+    db.execute('UPDATE players SET coins=MAX(coins,?) WHERE telegram_id=?', (INF, u['id']))
+    db.execute('UPDATE bh SET gems=MAX(gems,?) WHERE telegram_id=?', (INF, u['id']))
+    return db.execute('SELECT * FROM players WHERE telegram_id=?', (u['id'],)).fetchone()
+
+
 CAP_H, MAX_E = 8, 50
 AVATARS = ['🏠', '🔨', '👷', '🏗️', '🦾', '👑', '🐱', '🚀']
 
@@ -40,14 +59,18 @@ def touch(u):
 
 def view(db, u):
     p = M.get_player(db, u)
+    b = db.execute('INSERT OR IGNORE INTO bh (telegram_id,last_claim,energy_ts) VALUES (?,?,?)', (u['id'], int(time.time()), int(time.time())))
+    if u['id'] == ADMIN_ID:
+        p = topup(db, u)
     b = db.execute('SELECT * FROM bh WHERE telegram_id=?', (u['id'],)).fetchone()
     now, lv = int(time.time()), b['house']
     en = min(MAX_E, b['energy'] + (now - b['energy_ts']) / 2)
     return {'player': M.player_json(p), 'gems': b['gems'], 'avatar': b['avatar'], 'energy': int(en), 'max_energy': MAX_E,
             'daily_ready': now - b['last_daily'] >= 86400, 'is_admin': u['id'] == ADMIN_ID,
-            'house': {'level': lv, 'name': NAMES[lv - 1], 'income': INCOME[lv - 1], 'cap_hours': CAP_H,
-                      'pending': int(min(now - b['last_claim'], CAP_H * 3600) * INCOME[lv - 1] / 3600),
-                      'next_cost': COST[lv - 1] if lv < 10 else None, 'next_income': INCOME[lv] if lv < 10 else None}}
+            'house': {'level': lv, 'name': NAMES[lv - 1], 'income': income(lv), 'cap_hours': CAP_H,
+                      'pending': int(min(now - b['last_claim'], CAP_H * 3600) * income(lv) / 3600),
+                      'next_cost': cost(lv) if lv < MAXLV else None, 'next_income': income(lv + 1) if lv < MAXLV else None,
+                      'next_stars': 10 + 5 * lv if lv < MAXLV else None, 'max': MAXLV}}
 
 
 def _claim(db, u):
@@ -81,12 +104,12 @@ def upgrade(request: Request):
         db.execute('BEGIN IMMEDIATE')
         v = view(db, u)
         lv = v['house']['level']
-        if lv >= 10:
+        if lv >= MAXLV:
             raise HTTPException(409, 'Максимальный уровень дома')
-        if v['player']['coins'] < COST[lv - 1]:
-            raise HTTPException(402, f'Не хватает монет: нужно {COST[lv - 1]}')
+        if v['player']['coins'] < cost(lv):
+            raise HTTPException(402, f'Не хватает монет: нужно {cost(lv)}')
         _claim(db, u)  # забираем накопленный доход по старой ставке
-        db.execute('UPDATE players SET coins=coins-? WHERE telegram_id=?', (COST[lv - 1], u['id']))
+        db.execute('UPDATE players SET coins=coins-? WHERE telegram_id=?', (cost(lv), u['id']))
         db.execute('UPDATE bh SET house=house+1 WHERE telegram_id=?', (u['id'],))
         return view(db, u)
 
@@ -196,6 +219,7 @@ class Grant(BaseModel):
     telegram_id: int
     coins: int = 0
     gems: int = 0
+    house: int = 0
 
 
 @router.post('/api/admin/grant')
@@ -211,6 +235,8 @@ def grant(d: Grant, request: Request):
         db.execute('INSERT OR IGNORE INTO bh (telegram_id,last_claim,energy_ts) VALUES (?,?,?)', (d.telegram_id, now, now))
         db.execute('UPDATE players SET coins=MAX(0,coins+?) WHERE telegram_id=?', (d.coins, d.telegram_id))
         db.execute('UPDATE bh SET gems=MAX(0,gems+?) WHERE telegram_id=?', (d.gems, d.telegram_id))
+        if 1 <= d.house <= MAXLV:
+            db.execute('UPDATE bh SET house=?, last_claim=? WHERE telegram_id=?', (d.house, now, d.telegram_id))
         M.log.info('ADMIN grant %s coins=%s gems=%s', d.telegram_id, d.coins, d.gems)
         return {'ok': True}
 
