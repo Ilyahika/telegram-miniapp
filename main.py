@@ -160,7 +160,52 @@ async def start(message: Message):
 
 @app.get('/health')
 def health():
-    return {'status': 'ok'}
+    return {'status': 'ok', 'api': 'reachable'}
+
+
+@app.get('/health/db')
+def database_health():
+    """Public read-only check; no credentials or player data exposed."""
+    try:
+        with connection() as db:
+            db.execute('SELECT 1').fetchone()
+            tables = {row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()}
+        return {'database': 'connected', 'tables_ready':
+                'players' in tables and 'mines_games' in tables}
+    except sqlite3.Error:
+        log.exception('Database health check failed')
+        raise HTTPException(503, 'SQLite3 недоступна; смотри Logs в Render')
+
+
+@app.get('/api/diagnostics')
+def diagnostics(request: Request):
+    """Authenticated SQLite write/read/update/delete probe, with real commits."""
+    user = auth_request(request)
+    try:
+        with connection() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS db_probe (id TEXT PRIMARY KEY, value TEXT NOT NULL)')
+            db.execute('INSERT INTO db_probe (id,value) VALUES (lower(hex(randomblob(16))),?)', ('created',))
+            key = db.execute('SELECT id FROM db_probe WHERE value=? ORDER BY rowid DESC LIMIT 1', ('created',)).fetchone()[0]
+            db.commit()
+            read_ok = db.execute('SELECT value FROM db_probe WHERE id=?', (key,)).fetchone()[0] == 'created'
+            db.execute('UPDATE db_probe SET value=? WHERE id=?', ('updated', key))
+            db.commit()
+            update_ok = db.execute('SELECT value FROM db_probe WHERE id=?', (key,)).fetchone()[0] == 'updated'
+            db.execute('DELETE FROM db_probe WHERE id=?', (key,))
+            db.commit()
+            delete_ok = db.execute('SELECT 1 FROM db_probe WHERE id=?', (key,)).fetchone() is None
+            row = get_player(db, user)
+            db.commit()
+            profile_read_ok = row is not None and int(row['telegram_id']) == user['id']
+        return {'telegram_auth': 'ok', 'sqlite_write': True,
+                'sqlite_read': read_ok, 'sqlite_update': update_ok,
+                'sqlite_delete': delete_ok, 'profile_read': profile_read_ok}
+    except sqlite3.Error:
+        log.exception('Database diagnostic failed')
+        raise HTTPException(503, 'Ошибка записи/чтения SQLite3. Открой Logs в Render')
+
 
 
 @app.get('/')

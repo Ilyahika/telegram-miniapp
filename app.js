@@ -85,3 +85,38 @@ $('nickname-form').addEventListener('submit', async event => {
   } catch(e) { status('⚠️ ' + e.message); }
 });
 load();
+
+// Дополнительная диагностика без вывода секретных данных Telegram.
+$('diagnose').addEventListener('click', async () => {
+  const out = $('debug-output');
+  out.textContent = 'Проверяю подключение...';
+  if (API_BASE.includes('YOUR-SERVICE')) {
+    out.textContent = '❌ В app.js не заменён YOUR-SERVICE на адрес Render.';
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE}/health/db`);
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`);
+    out.textContent = `✅ API доступен\n✅ SQLite: ${body.database}\n${body.tables_ready ? '✅' : '❌'} Таблицы игроков существуют`;
+  } catch (e) {
+    out.textContent = '❌ Сервер или база недоступны: ' + e.message;
+    return;
+  }
+  if (!tg?.initData) {
+    out.textContent += '\n❌ Telegram initData отсутствует. Открой приложение из кнопки бота в Telegram.';
+    return;
+  }
+  try {
+    const d = await request('/api/diagnostics');
+    out.textContent += `\n✅ Telegram авторизация: ${d.telegram_auth}\n` +
+      `✅ Запись SQLite: ${d.sqlite_write}\n` +
+      `✅ Чтение SQLite: ${d.sqlite_read}\n` +
+      `✅ Изменение SQLite: ${d.sqlite_update}\n` +
+      `✅ Удаление SQLite: ${d.sqlite_delete}\n` +
+      `✅ Профиль из SQLite: ${d.profile_read}`;
+    await load();
+  } catch (e) {
+    out.textContent += '\n❌ Проверка авторизации или записи: ' + e.message;
+  }
+});

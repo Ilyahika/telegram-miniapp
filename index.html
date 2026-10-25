@@ -18,5 +18,10 @@
     <div class="stat"><b id="coins">—</b><small>Монеты</small></div><div class="stat"><b id="games">—</b><small>Игр</small></div><div class="stat"><b id="wins">—</b><small>Побед</small></div>
   </div><h2 style="margin-top:20px">✏️ Игровой ник</h2><form id="nickname-form" class="form"><input id="nickname" maxlength="24" placeholder="Ник (пусто — имя Telegram)" autocomplete="off"><button type="submit">Сохранить</button></form></section>
   <section class="panel"><h2>🎮 Поле 5 × 5</h2><p class="muted">На поле 5 мин. Открой все 20 безопасных клеток и получи 50 игровых монет. Проигрыш не списывает монеты.</p><button id="new-game" class="outline">Начать новую игру</button><div id="grid" class="grid" aria-label="Игровое поле"></div><div id="status" role="status">Подключение к серверу...</div></section>
+  <section class="panel"><h2>🔧 Проверка подключения</h2>
+    <p class="muted">Проверка API и SQLite3: создание, запись, чтение, изменение, удаление.</p>
+    <button id="diagnose" class="outline">Проверить базу данных</button>
+    <pre id="debug-output" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#cbd9ff" aria-live="polite"></pre>
+  </section>
   <p class="foot">Только виртуальные игровые монеты. Без ставок, платежей и вывода денег.</p>
 </main><script src="./app.js"></script></body></html>
